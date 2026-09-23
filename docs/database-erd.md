@@ -66,8 +66,8 @@ erDiagram
     }
 
     EventCategory {
-        string eventId PK_FK
-        string categoryId PK_FK
+        string eventId PK
+        string categoryId PK
     }
 
     Registration {
@@ -83,7 +83,7 @@ erDiagram
 
     Payment {
         string id PK
-        string registrationId FK_UK
+        string registrationId FK
         string userId FK
         int amount
         PaymentStatus status
