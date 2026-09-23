@@ -39,3 +39,23 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# claude / AI
+.claude/
+AGENTS.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+
+# prisma
+prisma/*.db
+prisma/*.db-journal
+
+# supabase
+.supabase/
