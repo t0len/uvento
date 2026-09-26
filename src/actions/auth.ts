@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { signIn } from "@/lib/auth";
+import { homePathForRole, signIn } from "@/lib/auth";
 import { registerSchema, loginSchema } from "@/lib/validations/auth";
 import { AuthError } from "next-auth";
 
@@ -36,7 +36,7 @@ export async function register(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/",
+      redirectTo: "/my",
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -57,11 +57,25 @@ export async function login(formData: FormData) {
     return { error: validated.error.issues[0].message };
   }
 
+  const user = await prisma.user.findUnique({
+    where: { email: raw.email },
+    select: { role: true, passwordHash: true },
+  });
+
+  if (!user) {
+    return { error: "Неверный email или пароль" };
+  }
+
+  const passwordMatch = await bcrypt.compare(raw.password, user.passwordHash);
+  if (!passwordMatch) {
+    return { error: "Неверный email или пароль" };
+  }
+
   try {
     await signIn("credentials", {
       email: raw.email,
       password: raw.password,
-      redirectTo: "/",
+      redirectTo: homePathForRole(user.role),
     });
   } catch (error) {
     if (error instanceof AuthError) {

@@ -4,16 +4,25 @@ import { NextResponse } from "next/server";
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const user = req.auth?.user;
+  const role = user?.role;
 
   if (pathname.startsWith("/admin")) {
-    if (!user || user.role !== "ADMIN") {
+    if (!user) {
       return NextResponse.redirect(new URL("/login", req.url));
+    }
+    if (role !== "ADMIN") {
+      const dest = role === "ORGANIZER" ? "/dashboard" : "/my";
+      return NextResponse.redirect(new URL(dest, req.url));
     }
   }
 
   if (pathname.startsWith("/dashboard")) {
-    if (!user || (user.role !== "ORGANIZER" && user.role !== "ADMIN")) {
+    if (!user) {
       return NextResponse.redirect(new URL("/login", req.url));
+    }
+    if (role !== "ORGANIZER") {
+      const dest = role === "ADMIN" ? "/admin" : "/my";
+      return NextResponse.redirect(new URL(dest, req.url));
     }
   }
 

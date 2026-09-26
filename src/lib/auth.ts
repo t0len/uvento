@@ -1,11 +1,10 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
+import { redirect } from "next/navigation";
 import { prisma } from "./prisma";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma) as never,
+const nextAuth = NextAuth({
   session: { strategy: "jwt" },
   pages: {
     signIn: "/login",
@@ -59,3 +58,32 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 });
+
+export const { handlers, signIn, signOut, auth } = nextAuth;
+
+export async function requireAuth(): Promise<{ id: string; email: string; name: string; role: string }> {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+  return session!.user as { id: string; email: string; name: string; role: string };
+}
+
+/** Home path after login — roles stay in separate workspaces. */
+export function homePathForRole(role: string) {
+  if (role === "ADMIN") return "/admin";
+  if (role === "ORGANIZER") return "/dashboard";
+  return "/my";
+}
+
+/**
+ * Enforce exact role. ORGANIZER and ADMIN are mutually exclusive workspaces:
+ * admin → /admin only, organizer → /dashboard only.
+ */
+export async function requireRole(role: "ORGANIZER" | "ADMIN") {
+  const user = await requireAuth();
+  if (user.role !== role) {
+    redirect(homePathForRole(user.role));
+  }
+  return user;
+}

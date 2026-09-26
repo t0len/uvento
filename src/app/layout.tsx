@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { getI18n, localeHtmlLang } from "@/lib/i18n";
+import { I18nProvider } from "@/components/i18n/i18n-provider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,23 +14,31 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Uvento — Университетские события",
-  description:
-    "Платформа для организации и участия в университетских мероприятиях. Регистрация, оплата, QR-билеты и отслеживание посещаемости.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t.meta.title,
+    description: t.meta.description,
+  };
+}
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { locale, t } = await getI18n();
+
   return (
     <html
-      lang="ru"
+      lang={localeHtmlLang[locale]}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <I18nProvider locale={locale} dictionary={t}>
+          {children}
+        </I18nProvider>
+      </body>
     </html>
   );
 }

@@ -3,10 +3,12 @@
 import { useState } from "react";
 import { login } from "@/actions/auth";
 import Link from "next/link";
+import { useI18n, LanguageSwitcher } from "@/components/i18n/i18n-provider";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const { t } = useI18n();
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -20,17 +22,18 @@ export default function LoginPage() {
 
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      <div className="mb-4 flex justify-end">
+        <LanguageSwitcher compact />
+      </div>
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Вход в Uvento</h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Войдите в свой аккаунт
-        </p>
+        <h1 className="text-2xl font-bold text-gray-900">{t.auth.loginTitle}</h1>
+        <p className="mt-1 text-sm text-gray-500">{t.auth.loginSubtitle}</p>
       </div>
 
       <form action={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            Email
+            {t.auth.email}
           </label>
           <input
             id="email"
@@ -44,7 +47,7 @@ export default function LoginPage() {
 
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-            Пароль
+            {t.auth.password}
           </label>
           <input
             id="password"
@@ -57,9 +60,7 @@ export default function LoginPage() {
         </div>
 
         {error && (
-          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-            {error}
-          </div>
+          <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
         )}
 
         <button
@@ -67,14 +68,14 @@ export default function LoginPage() {
           disabled={loading}
           className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
         >
-          {loading ? "Вход..." : "Войти"}
+          {loading ? t.auth.signingIn : t.auth.signIn}
         </button>
       </form>
 
       <p className="mt-4 text-center text-sm text-gray-500">
-        Нет аккаунта?{" "}
+        {t.auth.noAccount}{" "}
         <Link href="/register" className="font-medium text-blue-600 hover:text-blue-500">
-          Зарегистрироваться
+          {t.auth.registerLink}
         </Link>
       </p>
     </div>

@@ -2,7 +2,8 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111111;
+  color-scheme: light;
 }
 
 @theme inline {
@@ -12,15 +13,39 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+input,
+textarea,
+select {
+  color: #111111;
+  background-color: #ffffff;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #c4c4c4;
+  opacity: 1;
+}
+
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"] {
+  color: #111111;
+}
+
+input[type="datetime-local"]:invalid,
+input[type="date"]:invalid,
+input[type="time"]:invalid {
+  color: #c4c4c4;
+}
+
+input[type="datetime-local"]:valid,
+input[type="date"]:valid,
+input[type="time"]:valid {
+  color: #111111;
 }
