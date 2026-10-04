@@ -4,16 +4,36 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { canCreateEvent, canEditEvent, canPublishEvent } from "@/lib/permissions";
 import { createEventSchema, updateEventSchema } from "@/lib/validations/events";
+import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
+import { getI18n } from "@/lib/i18n";
+import { saveEventImage } from "@/lib/uploads";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 function slugify(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
-    .trim();
+    .replace(/^-|-$/g, "");
+}
+
+function eventDates(formData: FormData) {
+  const date = String(formData.get("date") || "");
+  const startTime = String(formData.get("startTime") || "");
+  const endTime = String(formData.get("endTime") || "");
+
+  if (date && startTime) {
+    const startDate = combineLocalDateTime(date, startTime);
+    const endDate = endTime ? combineLocalDateTime(date, endTime) : addHoursLocal(date, startTime, 2);
+    return { startDate, endDate };
+  }
+
+  return {
+    startDate: String(formData.get("startDate") || ""),
+    endDate: String(formData.get("endDate") || ""),
+  };
 }
 
 export async function createEvent(formData: FormData) {
@@ -22,14 +42,15 @@ export async function createEvent(formData: FormData) {
     return { error: "Нет прав для создания мероприятия" };
   }
 
+  const dates = eventDates(formData);
   const raw = {
     title: formData.get("title") as string,
     description: formData.get("description") as string,
     shortDescription: (formData.get("shortDescription") as string) || undefined,
     location: formData.get("location") as string,
     venue: (formData.get("venue") as string) || undefined,
-    startDate: formData.get("startDate") as string,
-    endDate: formData.get("endDate") as string,
+    startDate: dates.startDate,
+    endDate: dates.endDate,
     capacity: formData.get("capacity") as string,
     price: (formData.get("price") as string) || "0",
     categoryIds: formData.getAll("categoryIds") as string[],
@@ -51,7 +72,19 @@ export async function createEvent(formData: FormData) {
     return { error: "Вы не состоите ни в одной организации" };
   }
 
+  const cover = formData.get("cover");
+  let coverImageUrl: string | undefined;
+  if (cover instanceof File && cover.size > 0) {
+    const saved = await saveEventImage(cover);
+    if (saved.error) {
+      const { t } = await getI18n();
+      return { error: saved.error === "imageSize" ? t.dashboard.imageSize : t.dashboard.imageType };
+    }
+    coverImageUrl = saved.url;
+  }
+
   let slug = slugify(title);
+  if (!slug) slug = `event-${Date.now().toString(36)}`;
   const existing = await prisma.event.findUnique({ where: { slug } });
   if (existing) {
     slug = `${slug}-${Date.now().toString(36)}`;
@@ -69,6 +102,8 @@ export async function createEvent(formData: FormData) {
       endDate: new Date(endDate),
       capacity,
       price,
+      coverImageUrl,
+      status: formData.get("intent") === "publish" ? "PUBLISHED" : "DRAFT",
       organizationId: membership.organizationId,
       categories: categoryIds?.length
         ? { create: categoryIds.map((id) => ({ categoryId: id })) }

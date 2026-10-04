@@ -24,19 +24,37 @@ export async function registerForEvent(eventId: string) {
     return { error: "Вы уже зарегистрированы на это мероприятие" };
   }
 
+  const status = event.price > 0 ? "PENDING" : "CONFIRMED";
+  let registrationId: string;
+
   if (existing && existing.status === "CANCELLED") {
     await prisma.registration.update({
       where: { id: existing.id },
-      data: { status: event.price > 0 ? "PENDING" : "CONFIRMED" },
+      data: { status },
     });
+    registrationId = existing.id;
+    if (event.price > 0) {
+      const payment = await prisma.payment.findUnique({ where: { registrationId } });
+      if (!payment) {
+        await prisma.payment.create({
+          data: { registrationId, userId: user.id, amount: event.price, status: "PENDING" },
+        });
+      } else if (payment.status !== "PENDING") {
+        await prisma.payment.update({
+          where: { id: payment.id },
+          data: { status: "PENDING", paidAt: null, method: null },
+        });
+      }
+    }
   } else {
     const registration = await prisma.registration.create({
       data: {
         userId: user.id,
         eventId,
-        status: event.price > 0 ? "PENDING" : "CONFIRMED",
+        status,
       },
     });
+    registrationId = registration.id;
 
     if (event.price > 0) {
       await prisma.payment.create({
@@ -55,7 +73,7 @@ export async function registerForEvent(eventId: string) {
   revalidatePath("/my/events");
   revalidatePath("/dashboard/registrations");
 
-  return { success: true };
+  return { success: true as const, status, registrationId };
 }
 
 export async function cancelRegistration(registrationId: string) {

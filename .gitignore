@@ -59,3 +59,7 @@ prisma/*.db-journal
 
 # supabase
 .supabase/
+
+# uploaded event images
+/public/uploads/*
+!/public/uploads/.gitkeep

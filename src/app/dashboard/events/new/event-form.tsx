@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { createEvent } from "@/actions/events";
 import { useI18n } from "@/components/i18n/i18n-provider";
 
@@ -8,6 +8,7 @@ type Category = { id: string; name: string; slug: string };
 
 export function EventForm({ categories }: { categories: Category[] }) {
   const { t } = useI18n();
+  const [preview, setPreview] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
       const result = await createEvent(formData);
@@ -15,6 +16,14 @@ export function EventForm({ categories }: { categories: Category[] }) {
     },
     null
   );
+
+  function setFile(file: File | undefined) {
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+    setPreview(URL.createObjectURL(file));
+  }
 
   return (
     <form action={formAction} className="space-y-6">
@@ -34,6 +43,72 @@ export function EventForm({ categories }: { categories: Category[] }) {
           className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
           placeholder={t.dashboard.phTitle}
         />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div>
+          <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formDate}
+          </label>
+          <input
+            id="date"
+            name="date"
+            type="date"
+            required
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          />
+        </div>
+        <div>
+          <label htmlFor="startTime" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formTime}
+          </label>
+          <input
+            id="startTime"
+            name="startTime"
+            type="time"
+            required
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          />
+        </div>
+        <div>
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formLocation}
+          </label>
+          <input
+            id="location"
+            name="location"
+            type="text"
+            required
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+            placeholder={t.dashboard.phLocation}
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formEndTime}
+          </label>
+          <input
+            id="endTime"
+            name="endTime"
+            type="time"
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          />
+        </div>
+        <div>
+          <label htmlFor="venue" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formVenue}
+          </label>
+          <input
+            id="venue"
+            name="venue"
+            type="text"
+            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+            placeholder={t.dashboard.phVenue}
+          />
+        </div>
       </div>
 
       <div>
@@ -66,60 +141,19 @@ export function EventForm({ categories }: { categories: Category[] }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-            {t.dashboard.formLocation}
+          <label htmlFor="price" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formPrice}
           </label>
           <input
-            id="location"
-            name="location"
-            type="text"
-            required
+            id="price"
+            name="price"
+            type="number"
+            min={0}
+            defaultValue={0}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
-            placeholder={t.dashboard.phLocation}
+            placeholder={t.dashboard.phPrice}
           />
         </div>
-        <div>
-          <label htmlFor="venue" className="block text-sm font-medium text-gray-700">
-            {t.dashboard.formVenue}
-          </label>
-          <input
-            id="venue"
-            name="venue"
-            type="text"
-            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
-            placeholder={t.dashboard.phVenue}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="startDate" className="block text-sm font-medium text-gray-700">
-            {t.dashboard.formStart}
-          </label>
-          <input
-            id="startDate"
-            name="startDate"
-            type="datetime-local"
-            required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
-          />
-        </div>
-        <div>
-          <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
-            {t.dashboard.formEnd}
-          </label>
-          <input
-            id="endDate"
-            name="endDate"
-            type="datetime-local"
-            required
-            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="capacity" className="block text-sm font-medium text-gray-700">
             {t.dashboard.formCapacity}
@@ -132,20 +166,6 @@ export function EventForm({ categories }: { categories: Category[] }) {
             min={1}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             placeholder="100"
-          />
-        </div>
-        <div>
-          <label htmlFor="price" className="block text-sm font-medium text-gray-700">
-            {t.dashboard.formPrice}
-          </label>
-          <input
-            id="price"
-            name="price"
-            type="number"
-            min={0}
-            defaultValue={0}
-            className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
-            placeholder={t.dashboard.phPrice}
           />
         </div>
       </div>
@@ -169,15 +189,58 @@ export function EventForm({ categories }: { categories: Category[] }) {
         </div>
       )}
 
-      <div className="flex gap-3 border-t border-gray-200 pt-6">
+      <div>
+        <p className="block text-sm font-medium text-gray-700">{t.dashboard.formImage}</p>
+        <label
+          htmlFor="cover"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const file = event.dataTransfer.files?.[0];
+            const input = document.getElementById("cover") as HTMLInputElement | null;
+            if (file && input) {
+              const transfer = new DataTransfer();
+              transfer.items.add(file);
+              input.files = transfer.files;
+              setFile(file);
+            }
+          }}
+          className="mt-1 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500 hover:border-gray-400"
+        >
+          {preview ? (
+            <img src={preview} alt="" className="mb-3 max-h-40 rounded-lg object-contain" />
+          ) : null}
+          {t.dashboard.formImageHint}
+          <input
+            id="cover"
+            name="cover"
+            type="file"
+            accept="image/jpeg,image/png"
+            className="sr-only"
+            onChange={(event) => setFile(event.target.files?.[0])}
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-6">
         <button
           type="submit"
+          name="intent"
+          value="draft"
+          disabled={isPending}
+          className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {t.dashboard.saveDraft}
+        </button>
+        <button
+          type="submit"
+          name="intent"
+          value="publish"
           disabled={isPending}
           className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          {isPending ? t.dashboard.formCreating : t.dashboard.createEvent}
+          {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
         </button>
-        <p className="self-center text-xs text-gray-400">{t.dashboard.formDraftHint}</p>
       </div>
     </form>
   );

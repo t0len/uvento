@@ -3,7 +3,15 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 
-export function QRTicket({ ticketCode, eventTitle }: { ticketCode: string; eventTitle: string }) {
+export function QRTicket({
+  ticketCode,
+  eventTitle,
+  hint,
+}: {
+  ticketCode: string;
+  eventTitle: string;
+  hint?: string;
+}) {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,7 +29,7 @@ export function QRTicket({ ticketCode, eventTitle }: { ticketCode: string; event
   return (
     <div className="flex flex-col items-center">
       <img src={qrUrl} alt={`QR ticket for ${eventTitle}`} className="rounded-lg" width={120} height={120} />
-      <span className="mt-1 text-xs text-gray-400">Show at entrance</span>
+      {hint ? <span className="mt-1 text-xs text-gray-400">{hint}</span> : null}
     </div>
   );
 }

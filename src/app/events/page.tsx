@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/header";
+import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { formatKzt } from "@/lib/format";
 
 export default async function EventsPage({
   searchParams,
@@ -98,11 +100,7 @@ export default async function EventsPage({
                 href={`/events/${event.slug}`}
                 className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
               >
-                <div className="flex h-44 items-center justify-center bg-gray-200">
-                  <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
+                <EventCover url={event.coverImageUrl} label={t.eventDetail.photo} className="h-44 w-full" />
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900">{event.title}</h3>
                   <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
@@ -133,15 +131,9 @@ export default async function EventsPage({
                       <span className="text-xs text-gray-400">
                         {event._count.registrations}/{event.capacity}
                       </span>
-                      {event.price > 0 ? (
-                        <span className="text-sm font-medium text-gray-900">
-                          {event.price} KZT
-                        </span>
-                      ) : (
-                        <span className="text-sm font-medium text-gray-900">
-                          {t.events.free}
-                        </span>
-                      )}
+                      <span className="text-sm font-medium text-gray-900">
+                        {formatKzt(event.price, t.events.free)}
+                      </span>
                     </div>
                   </div>
                 </div>

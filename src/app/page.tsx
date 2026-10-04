@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { EventCover } from "@/components/events/event-cover";
 import { UserMenu } from "@/components/layout/user-menu";
 import { LanguageSwitcher } from "@/components/i18n/i18n-provider";
 
@@ -155,11 +156,7 @@ export default async function HomePage() {
                   href={`/events/${event.slug}`}
                   className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition-shadow hover:shadow-md"
                 >
-                  <div className="flex h-44 items-center justify-center bg-gray-200">
-                    <svg className="h-10 w-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
+                  <EventCover url={event.coverImageUrl} label={t.eventDetail.photo} className="h-44 w-full" />
                   <div className="p-4">
                     <h3 className="font-semibold text-gray-900">{event.title}</h3>
                     <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
