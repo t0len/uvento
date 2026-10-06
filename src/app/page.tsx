@@ -11,7 +11,7 @@ export default async function HomePage() {
   const { locale, t } = await getI18n();
 
   const events = await prisma.event.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", endDate: { gte: new Date() } },
     include: {
       categories: { include: { category: true } },
       _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },

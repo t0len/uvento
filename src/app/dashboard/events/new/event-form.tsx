@@ -1,17 +1,40 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { createEvent } from "@/actions/events";
+import { createEvent, updateEvent } from "@/actions/events";
 import { useI18n } from "@/components/i18n/i18n-provider";
 
 type Category = { id: string; name: string; slug: string };
 
-export function EventForm({ categories }: { categories: Category[] }) {
+export type EventFormValues = {
+  title: string;
+  description: string;
+  shortDescription: string;
+  location: string;
+  venue: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  capacity: number;
+  price: number;
+  categoryIds: string[];
+  coverImageUrl: string | null;
+};
+
+export function EventForm({
+  categories,
+  eventId,
+  initial,
+}: {
+  categories: Category[];
+  eventId?: string;
+  initial?: EventFormValues;
+}) {
   const { t } = useI18n();
-  const [preview, setPreview] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(initial?.coverImageUrl ?? null);
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
-      const result = await createEvent(formData);
+      const result = eventId ? await updateEvent(eventId, formData) : await createEvent(formData);
       return result ?? null;
     },
     null
@@ -41,6 +64,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
           type="text"
           required
           className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          defaultValue={initial?.title}
           placeholder={t.dashboard.phTitle}
         />
       </div>
@@ -55,6 +79,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             name="date"
             type="date"
             required
+            defaultValue={initial?.date}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
           />
         </div>
@@ -67,6 +92,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             name="startTime"
             type="time"
             required
+            defaultValue={initial?.startTime}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
           />
         </div>
@@ -80,6 +106,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             type="text"
             required
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+            defaultValue={initial?.location}
             placeholder={t.dashboard.phLocation}
           />
         </div>
@@ -94,6 +121,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             id="endTime"
             name="endTime"
             type="time"
+            defaultValue={initial?.endTime}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
           />
         </div>
@@ -106,6 +134,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             name="venue"
             type="text"
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+            defaultValue={initial?.venue}
             placeholder={t.dashboard.phVenue}
           />
         </div>
@@ -121,6 +150,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
           required
           rows={5}
           className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          defaultValue={initial?.description}
           placeholder={t.dashboard.phDescription}
         />
       </div>
@@ -135,6 +165,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
           type="text"
           maxLength={300}
           className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          defaultValue={initial?.shortDescription}
           placeholder={t.dashboard.phShort}
         />
       </div>
@@ -149,7 +180,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             name="price"
             type="number"
             min={0}
-            defaultValue={0}
+            defaultValue={initial?.price ?? 0}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             placeholder={t.dashboard.phPrice}
           />
@@ -164,6 +195,7 @@ export function EventForm({ categories }: { categories: Category[] }) {
             type="number"
             required
             min={1}
+            defaultValue={initial?.capacity}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             placeholder="100"
           />
@@ -181,7 +213,13 @@ export function EventForm({ categories }: { categories: Category[] }) {
                 key={cat.id}
                 className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-gray-300 px-3 py-1.5 text-sm text-gray-900 transition-colors has-[:checked]:border-gray-900 has-[:checked]:bg-gray-900 has-[:checked]:text-white"
               >
-                <input type="checkbox" name="categoryIds" value={cat.id} className="sr-only" />
+                <input
+                  type="checkbox"
+                  name="categoryIds"
+                  value={cat.id}
+                  defaultChecked={initial?.categoryIds.includes(cat.id)}
+                  className="sr-only"
+                />
                 {cat.name}
               </label>
             ))}
@@ -223,24 +261,36 @@ export function EventForm({ categories }: { categories: Category[] }) {
       </div>
 
       <div className="flex flex-wrap justify-end gap-3 border-t border-gray-200 pt-6">
-        <button
-          type="submit"
-          name="intent"
-          value="draft"
-          disabled={isPending}
-          className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {t.dashboard.saveDraft}
-        </button>
-        <button
-          type="submit"
-          name="intent"
-          value="publish"
-          disabled={isPending}
-          className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-        >
-          {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
-        </button>
+        {eventId ? (
+          <button
+            type="submit"
+            disabled={isPending}
+            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {isPending ? t.dashboard.formCreating : t.dashboard.saveChanges}
+          </button>
+        ) : (
+          <>
+            <button
+              type="submit"
+              name="intent"
+              value="draft"
+              disabled={isPending}
+              className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {t.dashboard.saveDraft}
+            </button>
+            <button
+              type="submit"
+              name="intent"
+              value="publish"
+              disabled={isPending}
+              className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
+            </button>
+          </>
+        )}
       </div>
     </form>
   );

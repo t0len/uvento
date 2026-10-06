@@ -3,6 +3,14 @@ export function formatKzt(amount: number, freeLabel: string) {
   return `₸ ${new Intl.NumberFormat("ru-RU").format(amount)}`;
 }
 
+export function dateTimeParts(value: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`,
+    time: `${pad(value.getHours())}:${pad(value.getMinutes())}`,
+  };
+}
+
 export function combineLocalDateTime(date: string, time: string) {
   return `${date}T${time}`;
 }

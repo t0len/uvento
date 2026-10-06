@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { canCreateEvent, canEditEvent, canPublishEvent } from "@/lib/permissions";
-import { createEventSchema, updateEventSchema } from "@/lib/validations/events";
+import { createEventSchema } from "@/lib/validations/events";
 import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import { saveEventImage } from "@/lib/uploads";
@@ -130,19 +130,36 @@ export async function updateEvent(eventId: string, formData: FormData) {
     return { error: "Нет прав для редактирования" };
   }
 
-  const raw: Record<string, unknown> = {};
-  for (const [key, value] of formData.entries()) {
-    if (key !== "categoryIds" && value) raw[key] = value;
-  }
-  raw.categoryIds = formData.getAll("categoryIds");
+  const dates = eventDates(formData);
+  const raw = {
+    title: (formData.get("title") as string) || undefined,
+    description: (formData.get("description") as string) || undefined,
+    shortDescription: (formData.get("shortDescription") as string) || undefined,
+    location: (formData.get("location") as string) || undefined,
+    venue: (formData.get("venue") as string) || undefined,
+    startDate: dates.startDate || undefined,
+    endDate: dates.endDate || undefined,
+    capacity: (formData.get("capacity") as string) || undefined,
+    price: (formData.get("price") as string) || undefined,
+    categoryIds: formData.getAll("categoryIds") as string[],
+  };
 
-  const validated = updateEventSchema.safeParse(raw);
+  const validated = createEventSchema.safeParse(raw);
   if (!validated.success) {
     return { error: validated.error.issues[0].message };
   }
 
   const data: Record<string, unknown> = {};
-  const { categoryIds, ...fields } = validated.data;
+  const { categoryIds, capacity, ...fields } = validated.data;
+  if (capacity !== undefined) {
+    const active = await prisma.registration.count({
+      where: { eventId, status: { not: "CANCELLED" } },
+    });
+    if (capacity < active) {
+      return { error: "Вместимость меньше числа текущих участников" };
+    }
+    data.capacity = capacity;
+  }
   for (const [key, value] of Object.entries(fields)) {
     if (value !== undefined) {
       if (key === "startDate" || key === "endDate") {
@@ -151,6 +168,16 @@ export async function updateEvent(eventId: string, formData: FormData) {
         data[key] = value;
       }
     }
+  }
+
+  const cover = formData.get("cover");
+  if (cover instanceof File && cover.size > 0) {
+    const saved = await saveEventImage(cover);
+    if (saved.error) {
+      const { t } = await getI18n();
+      return { error: saved.error === "imageSize" ? t.dashboard.imageSize : t.dashboard.imageType };
+    }
+    data.coverImageUrl = saved.url;
   }
 
   await prisma.event.update({
@@ -170,6 +197,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   revalidatePath(`/dashboard/events/${eventId}`);
   revalidatePath("/events");
   revalidatePath(`/events/${event.slug}`);
+  redirect(`/dashboard/events/${eventId}`);
 }
 
 export async function publishEvent(eventId: string) {
@@ -234,6 +262,13 @@ export async function deleteEvent(eventId: string) {
 
   if (!canEditEvent(user, { organizationId: event.organizationId, members: event.organization.members })) {
     return { error: "Нет прав для удаления" };
+  }
+
+  const active = await prisma.registration.count({
+    where: { eventId, status: { not: "CANCELLED" } },
+  });
+  if (active > 0) {
+    return { error: "Нельзя удалить событие, пока на него есть участники" };
   }
 
   await prisma.event.delete({ where: { id: eventId } });

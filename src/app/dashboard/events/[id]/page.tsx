@@ -60,7 +60,12 @@ export default async function DashboardEventDetailPage({
             {event.location}
           </p>
         </div>
-        <EventActions eventId={event.id} status={event.status} slug={event.slug} />
+        <EventActions
+          eventId={event.id}
+          status={event.status}
+          slug={event.slug}
+          canDelete={event.status === "DRAFT" || event._count.registrations === 0}
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

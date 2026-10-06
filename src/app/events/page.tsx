@@ -2,18 +2,23 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
-import { getI18n, localeDate } from "@/lib/i18n";
+import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatKzt } from "@/lib/format";
 
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const { locale, t } = await getI18n();
+  const pageSize = 9;
+  const page = Math.max(1, Number(params.page) || 1);
 
-  const where: Record<string, unknown> = { status: "PUBLISHED" };
+  const where: Record<string, unknown> = {
+    status: "PUBLISHED",
+    endDate: { gte: new Date() },
+  };
 
   if (params.q) {
     where.OR = [
@@ -26,7 +31,8 @@ export default async function EventsPage({
     where.categories = { some: { category: { slug: params.category } } };
   }
 
-  const [events, categories] = await Promise.all([
+  const [total, events, categories] = await Promise.all([
+    prisma.event.count({ where }),
     prisma.event.findMany({
       where,
       include: {
@@ -35,9 +41,21 @@ export default async function EventsPage({
         _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },
       },
       orderBy: { startDate: "asc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+
+  function pageHref(nextPage: number) {
+    const query = new URLSearchParams();
+    if (params.q) query.set("q", params.q);
+    if (params.category) query.set("category", params.category);
+    if (nextPage > 1) query.set("page", String(nextPage));
+    const value = query.toString();
+    return value ? `/events?${value}` : "/events";
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
@@ -129,7 +147,7 @@ export default async function EventsPage({
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400">
-                        {event._count.registrations}/{event.capacity}
+                        {Math.max(event.capacity - event._count.registrations, 0)} {t.events.spots}
                       </span>
                       <span className="text-sm font-medium text-gray-900">
                         {formatKzt(event.price, t.events.free)}
@@ -139,6 +157,28 @@ export default async function EventsPage({
                 </div>
               </Link>
             ))}
+          </div>
+        )}
+
+        {pages > 1 && (
+          <div className="mt-8 flex items-center justify-center gap-4">
+            {page > 1 ? (
+              <Link href={pageHref(page - 1)} className="text-sm font-medium text-gray-700 hover:text-gray-900">
+                {t.events.prev}
+              </Link>
+            ) : (
+              <span className="text-sm text-gray-300">{t.events.prev}</span>
+            )}
+            <span className="text-sm text-gray-500">
+              {tReplace(t.events.page, { page, pages })}
+            </span>
+            {page < pages ? (
+              <Link href={pageHref(page + 1)} className="text-sm font-medium text-gray-700 hover:text-gray-900">
+                {t.events.next}
+              </Link>
+            ) : (
+              <span className="text-sm text-gray-300">{t.events.next}</span>
+            )}
           </div>
         )}
       </main>

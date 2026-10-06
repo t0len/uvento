@@ -9,10 +9,12 @@ export function EventActions({
   eventId,
   status,
   slug,
+  canDelete,
 }: {
   eventId: string;
   status: string;
   slug: string;
+  canDelete: boolean;
 }) {
   const { t } = useI18n();
   const [isPending, startTransition] = useTransition();
@@ -29,6 +31,12 @@ export function EventActions({
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex gap-2">
+        <Link
+          href={`/dashboard/events/${eventId}/edit`}
+          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
+        >
+          {t.dashboard.edit}
+        </Link>
         <Link
           href={`/events/${slug}`}
           className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
@@ -54,7 +62,7 @@ export function EventActions({
             {t.dashboard.cancel}
           </button>
         )}
-        {status === "DRAFT" && (
+        {canDelete && (
           <button
             onClick={() => {
               if (confirm(t.dashboard.deleteConfirm)) {
