@@ -16,19 +16,19 @@ export function QRTicket({
 
   useEffect(() => {
     QRCode.toDataURL(ticketCode, {
-      width: 120,
-      margin: 1,
+      width: 240,
+      margin: 2,
       color: { dark: "#111827", light: "#ffffff" },
     }).then(setQrUrl);
   }, [ticketCode]);
 
   if (!qrUrl) {
-    return <div className="h-[120px] w-[120px] animate-pulse rounded-lg bg-gray-100" />;
+    return <div className="h-[240px] w-[240px] animate-pulse rounded-lg bg-gray-100" />;
   }
 
   return (
     <div className="flex flex-col items-center">
-      <img src={qrUrl} alt={`QR ticket for ${eventTitle}`} className="rounded-lg" width={120} height={120} />
+      <img src={qrUrl} alt={`QR ticket for ${eventTitle}`} className="rounded-lg" width={240} height={240} />
       {hint ? <span className="mt-1 text-xs text-gray-400">{hint}</span> : null}
     </div>
   );

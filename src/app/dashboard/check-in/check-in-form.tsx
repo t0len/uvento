@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { checkIn } from "@/actions/checkin";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { QrScanner } from "./qr-scanner";
 
 type CheckInResult = {
   success?: boolean;
@@ -16,19 +17,25 @@ export function CheckInForm() {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<CheckInResult | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ticketCode.trim()) return;
-
+  const submitCode = (code: string) => {
+    const trimmed = code.trim();
+    if (!trimmed || isPending) return;
+    setTicketCode(trimmed);
     startTransition(async () => {
-      const res = await checkIn(ticketCode.trim());
+      const res = await checkIn(trimmed);
       setResult(res);
       if (res.success) setTicketCode("");
     });
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    submitCode(ticketCode);
+  };
+
   return (
     <div className="space-y-6">
+      <QrScanner onCode={submitCode} busy={isPending} />
       <form onSubmit={handleSubmit} className="flex gap-3">
         <input
           type="text"
