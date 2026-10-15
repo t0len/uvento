@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getI18n, localeHtmlLang } from "@/lib/i18n";
 import { I18nProvider } from "@/components/i18n/i18n-provider";
+import { NavigationProgress } from "@/components/layout/navigation-progress";
+import { Suspense } from "react";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +38,9 @@ export default async function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <I18nProvider locale={locale} dictionary={t}>
+          <Suspense fallback={null}>
+            <NavigationProgress />
+          </Suspense>
           {children}
         </I18nProvider>
       </body>

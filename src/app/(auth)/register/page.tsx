@@ -13,15 +13,28 @@ export default function RegisterPage() {
   async function handleSubmit(formData: FormData) {
     setLoading(true);
     setError(null);
-    const result = await register(formData);
-    if (result?.error) {
-      setError(result.error);
+    try {
+      const result = await register(formData);
+      if (result?.error) {
+        setError(result.error);
+        setLoading(false);
+      }
+    } catch (error) {
+      const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
+      if (digest.startsWith("NEXT_REDIRECT")) throw error;
+      setError(t.auth.createFailed);
       setLoading(false);
     }
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+    <div className="relative rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
+      {loading && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/90">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
+          <p className="text-sm font-medium text-gray-900">{t.auth.creating}</p>
+        </div>
+      )}
       <div className="mb-4 flex justify-end">
         <LanguageSwitcher compact />
       </div>

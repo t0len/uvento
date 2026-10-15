@@ -49,3 +49,12 @@ input[type="date"]:valid,
 input[type="time"]:valid {
   color: #111111;
 }
+
+@keyframes uvento-nav {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(280%);
+  }
+}
