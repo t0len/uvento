@@ -86,7 +86,14 @@ export async function cancelRegistration(registrationId: string) {
 
   if (!registration) return { error: "Регистрация не найдена" };
   if (registration.userId !== user.id && user.role !== "ADMIN") {
-    return { error: "Нет прав для отмены регистрации" };
+    const membership =
+      user.role === "ORGANIZER"
+        ? await prisma.organizationMember.findFirst({
+            where: { userId: user.id, organizationId: registration.event.organizationId },
+            select: { id: true },
+          })
+        : null;
+    if (!membership) return { error: "Нет прав для отмены регистрации" };
   }
   if (registration.status === "CANCELLED") return { error: "Регистрация уже отменена" };
   if (registration.status === "CHECKED_IN") return { error: "Нельзя отменить после чек-ина" };

@@ -1,10 +1,20 @@
+import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
 import { ConfirmPaymentButton } from "./confirm-payment-button";
+import { RemoveParticipantButton } from "./remove-participant-button";
 
-export default async function DashboardRegistrationsPage() {
+const STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "CANCELLED"] as const;
+
+export default async function DashboardRegistrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<RegistrationFilters>;
+}) {
   const user = await requireRole("ORGANIZER");
+  const filters = await searchParams;
   const { locale, t } = await getI18n();
 
   const membership = await prisma.organizationMember.findFirst({
@@ -12,9 +22,17 @@ export default async function DashboardRegistrationsPage() {
     select: { organizationId: true },
   });
 
+  const events = membership
+    ? await prisma.event.findMany({
+        where: { organizationId: membership.organizationId },
+        select: { id: true, title: true },
+        orderBy: { startDate: "desc" },
+      })
+    : [];
+
   const registrations = membership
     ? await prisma.registration.findMany({
-        where: { event: { organizationId: membership.organizationId } },
+        where: registrationWhere(membership.organizationId, filters),
         include: {
           user: { select: { name: true, email: true } },
           event: { select: { title: true, slug: true, price: true } },
@@ -30,16 +48,80 @@ export default async function DashboardRegistrationsPage() {
     CANCELLED: "bg-red-100 text-red-700",
     CHECKED_IN: "bg-blue-100 text-blue-700",
   };
+  const filtering = Boolean(filters.q || filters.status || filters.event || filters.payment);
+  const exportHref = `/dashboard/registrations/export?${filterQuery(filters).toString()}`;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.registrations}</h1>
-      <p className="mt-1 text-sm text-gray-500">
-        {tReplace(t.dashboard.total, { count: registrations.length })}
-      </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.registrations}</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            {tReplace(t.dashboard.total, { count: registrations.length })}
+          </p>
+        </div>
+        <Link
+          href={exportHref}
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+        >
+          {t.dashboard.exportList}
+        </Link>
+      </div>
+
+      <form className="mt-6 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          name="q"
+          defaultValue={filters.q}
+          placeholder={t.dashboard.searchAttendees}
+          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-500"
+        />
+        <select
+          name="event"
+          defaultValue={filters.event || ""}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">{t.dashboard.allEventsFilter}</option>
+          {events.map((event) => (
+            <option key={event.id} value={event.id}>
+              {event.title}
+            </option>
+          ))}
+        </select>
+        <select
+          name="status"
+          defaultValue={filters.status || ""}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">{t.dashboard.allStatuses}</option>
+          {STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {t.status[status]}
+            </option>
+          ))}
+        </select>
+        <select
+          name="payment"
+          defaultValue={filters.payment || ""}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">{t.dashboard.allPayments}</option>
+          <option value="PENDING">{t.payment.PENDING}</option>
+          <option value="COMPLETED">{t.payment.COMPLETED}</option>
+          <option value="NONE">{t.payment.none}</option>
+        </select>
+        <button
+          type="submit"
+          className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+        >
+          {t.events.search}
+        </button>
+      </form>
 
       {registrations.length === 0 ? (
-        <div className="mt-12 text-center text-gray-500">{t.dashboard.noRegistrations}</div>
+        <div className="mt-12 text-center text-gray-500">
+          {filtering ? t.dashboard.noFilterResults : t.dashboard.noRegistrations}
+        </div>
       ) : (
         <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200 bg-white">
           <table className="w-full text-left text-sm">
@@ -86,9 +168,14 @@ export default async function DashboardRegistrationsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {reg.status === "PENDING" && reg.event.price > 0 && (
-                      <ConfirmPaymentButton registrationId={reg.id} />
-                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {reg.status === "PENDING" && reg.event.price > 0 && (
+                        <ConfirmPaymentButton registrationId={reg.id} />
+                      )}
+                      {reg.status !== "CANCELLED" && reg.status !== "CHECKED_IN" && (
+                        <RemoveParticipantButton registrationId={reg.id} />
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
