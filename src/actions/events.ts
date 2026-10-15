@@ -6,9 +6,16 @@ import { canCreateEvent, canEditEvent, canPublishEvent } from "@/lib/permissions
 import { createEventSchema } from "@/lib/validations/events";
 import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
-import { saveEventImage } from "@/lib/uploads";
+import { deleteEventImage, saveEventImage } from "@/lib/uploads";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+async function imageError(code: string) {
+  const { t } = await getI18n();
+  if (code === "imageSize") return t.dashboard.imageSize;
+  if (code === "imageUpload") return t.dashboard.imageUpload;
+  return t.dashboard.imageType;
+}
 
 function slugify(text: string): string {
   return text
@@ -76,10 +83,7 @@ export async function createEvent(formData: FormData) {
   let coverImageUrl: string | undefined;
   if (cover instanceof File && cover.size > 0) {
     const saved = await saveEventImage(cover);
-    if (saved.error) {
-      const { t } = await getI18n();
-      return { error: saved.error === "imageSize" ? t.dashboard.imageSize : t.dashboard.imageType };
-    }
+    if (saved.error) return { error: await imageError(saved.error) };
     coverImageUrl = saved.url;
   }
 
@@ -173,10 +177,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   const cover = formData.get("cover");
   if (cover instanceof File && cover.size > 0) {
     const saved = await saveEventImage(cover);
-    if (saved.error) {
-      const { t } = await getI18n();
-      return { error: saved.error === "imageSize" ? t.dashboard.imageSize : t.dashboard.imageType };
-    }
+    if (saved.error) return { error: await imageError(saved.error) };
     data.coverImageUrl = saved.url;
   }
 
@@ -197,6 +198,9 @@ export async function updateEvent(eventId: string, formData: FormData) {
   revalidatePath(`/dashboard/events/${eventId}`);
   revalidatePath("/events");
   revalidatePath(`/events/${event.slug}`);
+  if (typeof data.coverImageUrl === "string") {
+    await deleteEventImage(event.coverImageUrl);
+  }
   redirect(`/dashboard/events/${eventId}`);
 }
 
@@ -272,6 +276,7 @@ export async function deleteEvent(eventId: string) {
   }
 
   await prisma.event.delete({ where: { id: eventId } });
+  await deleteEventImage(event.coverImageUrl);
 
   revalidatePath("/dashboard/events");
   revalidatePath("/events");

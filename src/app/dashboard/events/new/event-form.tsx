@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createEvent, updateEvent } from "@/actions/events";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { compressCover } from "@/lib/compress-cover";
 
 type Category = { id: string; name: string; slug: string };
 
@@ -32,6 +33,7 @@ export function EventForm({
 }) {
   const { t } = useI18n();
   const [preview, setPreview] = useState<string | null>(initial?.coverImageUrl ?? null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
       const result = eventId ? await updateEvent(eventId, formData) : await createEvent(formData);
@@ -40,12 +42,32 @@ export function EventForm({
     null
   );
 
-  function setFile(file: File | undefined) {
+  async function applyCover(file: File | undefined) {
+    const input = document.getElementById("cover") as HTMLInputElement | null;
+    setPreview((current) => {
+      if (current?.startsWith("blob:")) URL.revokeObjectURL(current);
+      return current;
+    });
     if (!file) {
-      setPreview(null);
+      if (input) input.value = "";
+      setPreview(initial?.coverImageUrl ?? null);
+      setImageError(null);
       return;
     }
-    setPreview(URL.createObjectURL(file));
+    try {
+      const small = await compressCover(file);
+      if (input) {
+        const transfer = new DataTransfer();
+        transfer.items.add(small);
+        input.files = transfer.files;
+      }
+      setPreview(URL.createObjectURL(small));
+      setImageError(null);
+    } catch {
+      if (input) input.value = "";
+      setPreview(initial?.coverImageUrl ?? null);
+      setImageError(t.dashboard.imageSize);
+    }
   }
 
   return (
@@ -235,27 +257,22 @@ export function EventForm({
           onDrop={(event) => {
             event.preventDefault();
             const file = event.dataTransfer.files?.[0];
-            const input = document.getElementById("cover") as HTMLInputElement | null;
-            if (file && input) {
-              const transfer = new DataTransfer();
-              transfer.items.add(file);
-              input.files = transfer.files;
-              setFile(file);
-            }
+            if (file) void applyCover(file);
           }}
           className="mt-1 flex min-h-36 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-gray-300 bg-white px-4 py-8 text-center text-sm text-gray-500 hover:border-gray-400"
         >
           {preview ? (
             <img src={preview} alt="" className="mb-3 max-h-40 rounded-lg object-contain" />
           ) : null}
-          {t.dashboard.formImageHint}
+          {imageError ? <span className="mt-2 text-red-600">{imageError}</span> : null}
+          <span className="mt-2">{t.dashboard.formImageHint}</span>
           <input
             id="cover"
             name="cover"
             type="file"
             accept="image/jpeg,image/png"
             className="sr-only"
-            onChange={(event) => setFile(event.target.files?.[0])}
+            onChange={(event) => void applyCover(event.target.files?.[0])}
           />
         </label>
       </div>
