@@ -59,11 +59,15 @@ export async function login(formData: FormData) {
 
   const user = await prisma.user.findUnique({
     where: { email: raw.email },
-    select: { role: true, passwordHash: true },
+    select: { role: true, passwordHash: true, blocked: true },
   });
 
   if (!user) {
     return { error: "Неверный email или пароль" };
+  }
+
+  if (user.blocked) {
+    return { error: "Аккаунт заблокирован" };
   }
 
   const passwordMatch = await bcrypt.compare(raw.password, user.passwordHash);

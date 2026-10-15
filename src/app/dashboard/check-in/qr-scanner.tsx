@@ -23,13 +23,16 @@ export function QrScanner({
   const [error, setError] = useState<string | null>(null);
   const [imageNote, setImageNote] = useState<string | null>(null);
 
-  onCodeRef.current = onCode;
-  busyRef.current = busy;
+  useEffect(() => {
+    onCodeRef.current = onCode;
+    busyRef.current = busy;
+  }, [onCode, busy]);
 
   useEffect(() => {
     if (!running) return;
 
     let stream: MediaStream | null = null;
+    let videoEl: HTMLVideoElement | null = null;
     let frame = 0;
     let stopped = false;
     let lastCode = "";
@@ -86,10 +89,10 @@ export function QrScanner({
           return;
         }
         stream = next;
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
+        videoEl = videoRef.current;
+        if (!videoEl) return;
+        videoEl.srcObject = stream;
+        await videoEl.play();
         frame = requestAnimationFrame(tick);
       })
       .catch((error: unknown) => {
@@ -104,8 +107,7 @@ export function QrScanner({
       stopped = true;
       cancelAnimationFrame(frame);
       stream?.getTracks().forEach((track) => track.stop());
-      const video = videoRef.current;
-      if (video) video.srcObject = null;
+      if (videoEl) videoEl.srcObject = null;
     };
   }, [running, t.dashboard.cameraDenied, t.dashboard.cameraFailed, t.dashboard.cameraMissing]);
 

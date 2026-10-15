@@ -33,6 +33,26 @@ export async function updateUserRole(userId: string, role: string) {
   return { success: true };
 }
 
+export async function setUserBlocked(userId: string, blocked: boolean) {
+  const admin = await requireRole("ADMIN");
+
+  if (!canManageUsers(admin)) {
+    return { error: "Недостаточно прав" };
+  }
+
+  if (userId === admin.id) {
+    return { error: "Нельзя заблокировать самого себя" };
+  }
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { blocked },
+  });
+
+  revalidatePath("/admin/users");
+  return { success: true };
+}
+
 export async function adminCancelEvent(eventId: string) {
   await requireRole("ADMIN");
 

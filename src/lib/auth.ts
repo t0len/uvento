@@ -28,7 +28,7 @@ const nextAuth = NextAuth({
           user.passwordHash
         );
 
-        if (!passwordMatch) return null;
+        if (!passwordMatch || user.blocked) return null;
 
         return {
           id: user.id,
@@ -45,10 +45,17 @@ export const { handlers, signIn, signOut, auth } = nextAuth;
 
 export async function requireAuth(): Promise<{ id: string; email: string; name: string; role: string }> {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     redirect("/login");
   }
-  return session!.user as { id: string; email: string; name: string; role: string };
+  const row = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { blocked: true },
+  });
+  if (!row || row.blocked) {
+    await signOut({ redirectTo: "/login" });
+  }
+  return session.user as { id: string; email: string; name: string; role: string };
 }
 
 /** Home path after login — roles stay in separate workspaces. */
