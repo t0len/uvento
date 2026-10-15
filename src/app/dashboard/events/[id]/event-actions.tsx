@@ -29,8 +29,8 @@ export function EventActions({
   };
 
   return (
-    <div className="flex flex-col items-end gap-2">
-      <div className="flex gap-2">
+    <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+      <div className="flex flex-wrap gap-2 sm:justify-end">
         <Link
           href={`/dashboard/events/${eventId}/edit`}
           className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"

@@ -1,13 +1,10 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { EventCover } from "@/components/events/event-cover";
-import { UserMenu } from "@/components/layout/user-menu";
-import { LanguageSwitcher } from "@/components/i18n/i18n-provider";
+import { Header } from "@/components/layout/header";
 
 export default async function HomePage() {
-  const session = await auth();
   const { locale, t } = await getI18n();
 
   const events = await prisma.event.findMany({
@@ -22,67 +19,13 @@ export default async function HomePage() {
 
   return (
     <div className="flex min-h-screen flex-col bg-white">
-      <header className="border-b border-gray-200">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-          <div className="flex items-center gap-8">
-            <Link href="/" className="text-xl font-bold text-gray-900">
-              Uvento
-            </Link>
-            <nav className="hidden items-center gap-6 md:flex">
-              <Link
-                href="/events"
-                className="text-sm font-medium text-gray-700 hover:text-gray-900"
-              >
-                {t.nav.events}
-              </Link>
-              <Link
-                href="/organizations"
-                className="text-sm font-medium text-gray-700 hover:text-gray-900"
-              >
-                {t.nav.organizations}
-              </Link>
-              <Link
-                href="/about"
-                className="text-sm font-medium text-gray-700 hover:text-gray-900"
-              >
-                {t.nav.about}
-              </Link>
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher compact />
-            {session?.user ? (
-              <UserMenu
-                name={session.user.name || t.common.user}
-                email={session.user.email || ""}
-                role={session.user.role || "STUDENT"}
-              />
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  {t.nav.login}
-                </Link>
-                <Link
-                  href="/register"
-                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-                >
-                  {t.nav.signup}
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+      <Header />
 
       <main className="flex-1">
-        <section className="mx-auto max-w-7xl px-4 pt-16 pb-12">
-          <div className="flex flex-col items-center gap-12 md:flex-row">
-            <div className="flex-1">
-              <h1 className="text-5xl font-bold leading-tight tracking-tight text-gray-900">
+        <section className="mx-auto max-w-7xl px-4 pt-10 pb-8 md:pt-16 md:pb-12">
+          <div className="flex flex-col items-center gap-8 md:flex-row md:gap-12">
+            <div className="w-full flex-1">
+              <h1 className="text-3xl font-bold leading-tight tracking-tight text-gray-900 sm:text-5xl">
                 {t.home.heroTitle1}
                 <br />
                 {t.home.heroTitle2}
@@ -108,7 +51,7 @@ export default async function HomePage() {
         </section>
 
         <section className="border-y border-gray-200 bg-white">
-          <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 py-10 md:grid-cols-4">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-5 px-4 py-8 sm:grid-cols-2 md:grid-cols-4 md:py-10">
             <Feature
               title={t.home.discover}
               subtitle={t.home.discoverSub}
@@ -159,7 +102,7 @@ export default async function HomePage() {
                   <EventCover url={event.coverImageUrl} label={t.eventDetail.photo} className="h-44 w-full" />
                   <div className="p-4">
                     <h3 className="font-semibold text-gray-900">{event.title}</h3>
-                    <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                       <span>
                         {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
                           month: "short",
@@ -169,8 +112,8 @@ export default async function HomePage() {
                       </span>
                       <span>{event.location}</span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between">
-                      <div className="flex gap-1">
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-1">
                         {event.categories.slice(0, 2).map((ec) => (
                           <span
                             key={ec.categoryId}
@@ -214,13 +157,13 @@ function Feature({
   };
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gray-100">
+    <div className="flex items-start gap-3">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100">
         <svg className="h-5 w-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={paths[icon]} />
         </svg>
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-sm font-semibold text-gray-900">{title}</p>
         <p className="text-xs text-gray-500">{subtitle}</p>
       </div>

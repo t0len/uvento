@@ -59,7 +59,7 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                   {showQr ? (
                     <QRTicket ticketCode={ticket.ticketCode} eventTitle={ticket.title} hint={t.myTickets.showAtEntrance} />
                   ) : (
-                    <div className="flex h-[240px] w-[240px] items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400">
+                    <div className="flex aspect-square w-full max-w-[240px] items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400">
                       QR
                     </div>
                   )}

@@ -68,18 +68,18 @@ export default async function DashboardRegistrationsPage({
         </Link>
       </div>
 
-      <form className="mt-6 flex flex-wrap items-center gap-2">
+      <form className="mt-6 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
         <input
           type="text"
           name="q"
           defaultValue={filters.q}
           placeholder={t.dashboard.searchAttendees}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-500"
+          className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-500 sm:w-56"
         />
         <select
           name="event"
           defaultValue={filters.event || ""}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:w-auto"
         >
           <option value="">{t.dashboard.allEventsFilter}</option>
           {events.map((event) => (
@@ -91,7 +91,7 @@ export default async function DashboardRegistrationsPage({
         <select
           name="status"
           defaultValue={filters.status || ""}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:w-auto"
         >
           <option value="">{t.dashboard.allStatuses}</option>
           {STATUSES.map((status) => (
@@ -103,7 +103,7 @@ export default async function DashboardRegistrationsPage({
         <select
           name="payment"
           defaultValue={filters.payment || ""}
-          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm sm:w-auto"
         >
           <option value="">{t.dashboard.allPayments}</option>
           <option value="PENDING">{t.payment.PENDING}</option>
@@ -124,7 +124,7 @@ export default async function DashboardRegistrationsPage({
         </div>
       ) : (
         <div className="mt-6 overflow-x-auto rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="w-full min-w-[48rem] text-left text-sm">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.attendee}</th>

@@ -36,7 +36,7 @@ export function CheckInForm() {
   return (
     <div className="space-y-6">
       <QrScanner onCode={submitCode} busy={isPending} />
-      <form onSubmit={handleSubmit} className="flex gap-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
         <input
           type="text"
           value={ticketCode}
@@ -48,7 +48,7 @@ export function CheckInForm() {
         <button
           type="submit"
           disabled={isPending || !ticketCode.trim()}
-          className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 sm:shrink-0"
         >
           {isPending ? t.dashboard.checking : t.dashboard.submitCheckIn}
         </button>

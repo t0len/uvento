@@ -89,8 +89,8 @@ export default async function DashboardPage() {
           <p className="text-gray-500">{t.dashboard.noEvents}</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-          <table className="w-full text-left text-sm">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
+          <table className="w-full min-w-[40rem] text-left text-sm">
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.eventName}</th>

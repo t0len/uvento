@@ -44,10 +44,10 @@ export default async function DashboardEventDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{event.title}</h1>
+      <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="break-words text-2xl font-bold text-gray-900">{event.title}</h1>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[event.status]}`}>
               {t.status[event.status as keyof typeof t.status] || event.status}
             </span>
@@ -70,7 +70,7 @@ export default async function DashboardEventDetailPage({
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
         <div className="space-y-4">
           <StatCard
             label={t.dashboard.registrations}
@@ -88,7 +88,7 @@ export default async function DashboardEventDetailPage({
           />
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <div className="rounded-xl border border-gray-200 bg-white">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
               <h2 className="font-semibold text-gray-900">{t.dashboard.recentRegistrations}</h2>
@@ -99,7 +99,8 @@ export default async function DashboardEventDetailPage({
             {event.registrations.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-500">{t.dashboard.noRegistrations}</div>
             ) : (
-              <table className="w-full text-left text-sm">
+              <div className="overflow-x-auto">
+              <table className="w-full min-w-[32rem] text-left text-sm">
                 <thead className="border-b border-gray-100 bg-gray-50">
                   <tr>
                     <th className="px-4 py-2 font-medium text-gray-600">{t.dashboard.name}</th>
@@ -132,6 +133,7 @@ export default async function DashboardEventDetailPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>

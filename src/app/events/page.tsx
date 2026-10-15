@@ -63,13 +63,13 @@ export default async function EventsPage({
       <main className="mx-auto w-full max-w-7xl px-4 py-8">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900">{t.events.title}</h1>
-          <form className="flex items-center gap-2">
+          <form className="flex w-full items-center gap-2 sm:w-auto">
             <input
               type="text"
               name="q"
               defaultValue={params.q}
               placeholder={t.events.searchPlaceholder}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-500"
+              className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-500 sm:w-64 sm:flex-none"
             />
             <button
               type="submit"
@@ -121,7 +121,7 @@ export default async function EventsPage({
                 <EventCover url={event.coverImageUrl} label={t.eventDetail.photo} className="h-44 w-full" />
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900">{event.title}</h3>
-                  <div className="mt-1 flex items-center gap-4 text-sm text-gray-500">
+                  <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                     <span>
                       {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
                         month: "short",
@@ -134,8 +134,8 @@ export default async function EventsPage({
                   <p className="mt-2 line-clamp-2 text-sm text-gray-500">
                     {event.shortDescription || event.description.slice(0, 120)}
                   </p>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {event.categories.slice(0, 2).map((ec) => (
                         <span
                           key={ec.categoryId}

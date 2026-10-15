@@ -23,12 +23,12 @@ export function QRTicket({
   }, [ticketCode]);
 
   if (!qrUrl) {
-    return <div className="h-[240px] w-[240px] animate-pulse rounded-lg bg-gray-100" />;
+    return <div className="aspect-square w-full max-w-[240px] animate-pulse rounded-lg bg-gray-100" />;
   }
 
   return (
     <div className="flex flex-col items-center">
-      <img src={qrUrl} alt={`QR ticket for ${eventTitle}`} className="rounded-lg" width={240} height={240} />
+      <img src={qrUrl} alt={`QR ticket for ${eventTitle}`} className="h-auto w-full max-w-[240px] rounded-lg" />
       {hint ? <span className="mt-1 text-xs text-gray-400">{hint}</span> : null}
     </div>
   );

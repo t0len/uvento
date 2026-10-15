@@ -8,7 +8,7 @@ export default function MyLayout({
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
-      {children}
+      <div className="min-w-0 flex-1">{children}</div>
     </div>
   );
 }
