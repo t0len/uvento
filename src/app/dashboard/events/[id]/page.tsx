@@ -20,9 +20,11 @@ export default async function DashboardEventDetailPage({
       organization: { include: { members: { select: { userId: true } } } },
       categories: { include: { category: true } },
       registrations: {
-        include: { user: { select: { name: true, email: true } } },
+        include: {
+          user: { select: { name: true, email: true } },
+          payment: { select: { status: true } },
+        },
         orderBy: { createdAt: "desc" },
-        take: 20,
       },
       _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },
     },
@@ -80,7 +82,9 @@ export default async function DashboardEventDetailPage({
           />
           <StatCard
             label={t.dashboard.revenue}
-            value={`${event.price * event.registrations.filter((r) => r.status === "CONFIRMED" || r.status === "CHECKED_IN").length} KZT`}
+            value={`${event.registrations
+              .filter((r) => r.status === "CONFIRMED" || r.status === "CHECKED_IN")
+              .reduce((sum) => sum + event.price, 0)} KZT`}
           />
         </div>
 
@@ -103,6 +107,9 @@ export default async function DashboardEventDetailPage({
                       {t.dashboard.email}
                     </th>
                     <th className="px-4 py-2 font-medium text-gray-600">{t.dashboard.status}</th>
+                    <th className="hidden px-4 py-2 font-medium text-gray-600 sm:table-cell">
+                      {t.dashboard.payment}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -115,6 +122,11 @@ export default async function DashboardEventDetailPage({
                           status={reg.status}
                           label={t.status[reg.status as keyof typeof t.status] || reg.status}
                         />
+                      </td>
+                      <td className="hidden px-4 py-2 text-gray-500 sm:table-cell">
+                        {reg.payment
+                          ? t.payment[reg.payment.status as keyof typeof t.payment] || reg.payment.status
+                          : t.payment.none}
                       </td>
                     </tr>
                   ))}

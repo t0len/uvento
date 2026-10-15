@@ -15,7 +15,7 @@ export default async function DashboardPage() {
   const orgId = membership?.organizationId;
   const now = new Date();
 
-  const [upcomingCount, ticketsSold, checkedIn, events] = await Promise.all([
+  const [upcomingCount, ticketsSold, checkedIn, paidTickets, events] = await Promise.all([
     orgId
       ? prisma.event.count({
           where: { organizationId: orgId, status: "PUBLISHED", endDate: { gte: now } },
@@ -35,6 +35,15 @@ export default async function DashboardPage() {
         })
       : 0,
     orgId
+      ? prisma.registration.findMany({
+          where: {
+            status: { in: ["CONFIRMED", "CHECKED_IN"] },
+            event: { organizationId: orgId, price: { gt: 0 } },
+          },
+          select: { event: { select: { price: true } } },
+        })
+      : [],
+    orgId
       ? prisma.event.findMany({
           where: { organizationId: orgId },
           include: {
@@ -48,6 +57,8 @@ export default async function DashboardPage() {
         })
       : [],
   ]);
+
+  const revenue = paidTickets.reduce((sum, ticket) => sum + ticket.event.price, 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -64,10 +75,11 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label={t.dashboard.upcomingEvents} value={String(upcomingCount)} />
         <Stat label={t.dashboard.ticketsSold} value={String(ticketsSold)} />
         <Stat label={t.dashboard.checkedInStat} value={String(checkedIn)} />
+        <Stat label={t.dashboard.revenue} value={`${revenue} KZT`} />
       </div>
 
       <h2 className="mb-4 mt-10 text-lg font-semibold text-gray-900">{t.dashboard.yourEvents}</h2>
@@ -85,7 +97,7 @@ export default async function DashboardPage() {
                 <th className="hidden px-4 py-3 font-medium text-gray-700 sm:table-cell">
                   {t.dashboard.date}
                 </th>
-                <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.ticketsSold}</th>
+                <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.seats}</th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.status}</th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.actions}</th>
               </tr>
@@ -106,7 +118,9 @@ export default async function DashboardPage() {
                         year: "numeric",
                       })}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">{event._count.registrations}</td>
+                    <td className="px-4 py-3 text-gray-600">
+                      {event._count.registrations}/{event.capacity}
+                    </td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
                         {label}

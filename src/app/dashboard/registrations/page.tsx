@@ -51,6 +51,9 @@ export default async function DashboardRegistrationsPage() {
                   {t.dashboard.date}
                 </th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.status}</th>
+                <th className="hidden px-4 py-3 font-medium text-gray-700 md:table-cell">
+                  {t.dashboard.payment}
+                </th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.actions}</th>
               </tr>
             </thead>
@@ -73,6 +76,13 @@ export default async function DashboardRegistrationsPage() {
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[reg.status] || "bg-gray-100"}`}
                     >
                       {t.status[reg.status as keyof typeof t.status] || reg.status}
+                    </span>
+                  </td>
+                  <td className="hidden px-4 py-3 md:table-cell">
+                    <span className="text-gray-600">
+                      {reg.payment
+                        ? t.payment[reg.payment.status as keyof typeof t.payment] || reg.payment.status
+                        : t.payment.none}
                     </span>
                   </td>
                   <td className="px-4 py-3">

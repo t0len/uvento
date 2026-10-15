@@ -116,6 +116,13 @@ export async function confirmPayment(registrationId: string) {
   });
 
   if (!registration) return { error: "Регистрация не найдена" };
+  if (user.role === "ORGANIZER") {
+    const membership = await prisma.organizationMember.findFirst({
+      where: { userId: user.id, organizationId: registration.event.organizationId },
+      select: { id: true },
+    });
+    if (!membership) return { error: "Это событие другой организации" };
+  }
   if (registration.status !== "PENDING") return { error: "Регистрация не в статусе ожидания" };
 
   await prisma.$transaction([

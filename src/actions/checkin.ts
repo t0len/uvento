@@ -19,6 +19,13 @@ export async function checkIn(ticketCode: string) {
   });
 
   if (!registration) return { error: "Билет не найден" };
+  if (user.role === "ORGANIZER") {
+    const membership = await prisma.organizationMember.findFirst({
+      where: { userId: user.id, organizationId: registration.event.organizationId },
+      select: { id: true },
+    });
+    if (!membership) return { error: "Это событие другой организации" };
+  }
   if (registration.status === "CANCELLED") return { error: "Регистрация отменена" };
   if (registration.status === "CHECKED_IN") {
     return {
