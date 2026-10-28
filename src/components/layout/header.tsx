@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { currentUser } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n";
 import { UserMenu } from "./user-menu";
 import { SectionNav } from "./section-nav";
 import { LanguageSwitcher } from "@/components/i18n/i18n-provider";
 
 export async function Header() {
-  const session = await auth();
+  const user = await currentUser();
   const { t } = await getI18n();
 
   return (
@@ -40,12 +40,8 @@ export async function Header() {
 
         <div className="flex shrink-0 items-center gap-2">
           <LanguageSwitcher compact />
-          {session?.user ? (
-            <UserMenu
-              name={session.user.name || t.common.user}
-              email={session.user.email || ""}
-              role={session.user.role || "STUDENT"}
-            />
+          {user ? (
+            <UserMenu name={user.name || t.common.user} email={user.email} role={user.role} />
           ) : (
             <>
               <Link

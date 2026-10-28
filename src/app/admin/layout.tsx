@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { UserMenu } from "@/components/layout/user-menu";
 import { SectionNav } from "@/components/layout/section-nav";
 import { LanguageSwitcher } from "@/components/i18n/i18n-provider";
@@ -10,7 +10,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const user = await requireRole("ADMIN");
   const { t } = await getI18n();
 
   return (
@@ -59,13 +59,7 @@ export default async function AdminLayout({
             >
               {t.nav.publicSite}
             </Link>
-            {session?.user && (
-              <UserMenu
-                name={session.user.name || t.common.user}
-                email={session.user.email || ""}
-                role={session.user.role || "STUDENT"}
-              />
-            )}
+            <UserMenu name={user.name || t.common.user} email={user.email} role={user.role} />
           </div>
         </div>
         <SectionNav

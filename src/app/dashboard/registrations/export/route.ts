@@ -1,10 +1,12 @@
 import { requireRole } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
+import { membershipOrganizations } from "@/lib/organizations";
 import { filterQuery, registrationWhere } from "@/lib/registration-filters";
 
 function cell(value: string) {
-  return `"${value.replaceAll('"', '""')}"`;
+  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 export async function GET(request: Request) {
@@ -18,14 +20,13 @@ export async function GET(request: Request) {
     payment: url.searchParams.get("payment") ?? undefined,
   };
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: user.id },
-    select: { organizationId: true },
-  });
+  const organizations = await membershipOrganizations(user.id);
+  const orgIds = organizations.map((org) => org.id);
 
-  const registrations = membership
-    ? await prisma.registration.findMany({
-        where: registrationWhere(membership.organizationId, filters),
+  const registrations =
+    orgIds.length > 0
+      ? await prisma.registration.findMany({
+          where: registrationWhere(orgIds, filters),
         include: {
           user: { select: { name: true, email: true } },
           event: { select: { title: true } },

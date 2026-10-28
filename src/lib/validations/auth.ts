@@ -1,15 +1,21 @@
 import { z } from "zod";
 
+const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .pipe(z.email("Введите корректный email"));
+
 export const loginSchema = z.object({
-  email: z.string().email("Введите корректный email"),
+  email: emailSchema,
   password: z.string().min(1, "Введите пароль"),
 });
 
 export const registerSchema = z
   .object({
     name: z.string().min(2, "Имя должно быть минимум 2 символа"),
-    email: z.string().email("Введите корректный email"),
-    password: z.string().min(6, "Пароль минимум 6 символов"),
+    email: emailSchema,
+    password: z.string().min(8, "Пароль минимум 8 символов"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

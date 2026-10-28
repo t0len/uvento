@@ -7,6 +7,8 @@ import { createEventSchema } from "@/lib/validations/events";
 import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import { deleteEventImage, saveEventImage } from "@/lib/uploads";
+import { cancelEventWithTickets } from "@/lib/cancel-event";
+import { membershipOrganizations } from "@/lib/organizations";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -28,12 +30,17 @@ function slugify(text: string): string {
 
 function eventDates(formData: FormData) {
   const date = String(formData.get("date") || "");
+  const endDay = String(formData.get("endDate") || "") || date;
   const startTime = String(formData.get("startTime") || "");
   const endTime = String(formData.get("endTime") || "");
 
   if (date && startTime) {
     const startDate = combineLocalDateTime(date, startTime);
-    const endDate = endTime ? combineLocalDateTime(date, endTime) : addHoursLocal(date, startTime, 2);
+    const endDate = endTime
+      ? combineLocalDateTime(endDay, endTime)
+      : endDay && endDay !== date
+        ? combineLocalDateTime(endDay, startTime)
+        : addHoursLocal(date, startTime, 2);
     return { startDate, endDate };
   }
 
@@ -70,13 +77,15 @@ export async function createEvent(formData: FormData) {
 
   const { title, description, shortDescription, location, venue, startDate, endDate, capacity, price, categoryIds } = validated.data;
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: user.id },
-    select: { organizationId: true },
-  });
-
-  if (!membership) {
+  const memberships = await membershipOrganizations(user.id);
+  if (memberships.length === 0) {
     return { error: "Вы не состоите ни в одной организации" };
+  }
+  const requestedOrg = String(formData.get("organizationId") || "");
+  const organizationId =
+    memberships.length === 1 ? memberships[0].id : requestedOrg;
+  if (!memberships.some((org) => org.id === organizationId)) {
+    return { error: "Выберите организацию" };
   }
 
   const cover = formData.get("cover");
@@ -108,7 +117,7 @@ export async function createEvent(formData: FormData) {
       price,
       coverImageUrl,
       status: formData.get("intent") === "publish" ? "PUBLISHED" : "DRAFT",
-      organizationId: membership.organizationId,
+      organizationId,
       categories: categoryIds?.length
         ? { create: categoryIds.map((id) => ({ categoryId: id })) }
         : undefined,
@@ -245,13 +254,12 @@ export async function cancelEvent(eventId: string) {
     return { error: "Нет прав" };
   }
 
-  await prisma.event.update({
-    where: { id: eventId },
-    data: { status: "CANCELLED" },
-  });
+  await cancelEventWithTickets(eventId);
 
   revalidatePath(`/dashboard/events/${eventId}`);
   revalidatePath("/events");
+  revalidatePath(`/events/${event.slug}`);
+  revalidatePath("/my/tickets");
 }
 
 export async function deleteEvent(eventId: string) {

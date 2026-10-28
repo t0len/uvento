@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 import { TicketList, type TicketItem } from "./ticket-list";
 
 export default async function MyTicketsPage() {
@@ -37,7 +38,7 @@ export default async function MyTicketsPage() {
       statusLabel,
       title: registration.event.title,
       slug: registration.event.slug,
-      when: new Date(registration.event.startDate).toLocaleDateString(localeDate[locale], {
+      when: formatEventDate(registration.event.startDate, localeDate[locale], {
         weekday: "short",
         month: "short",
         day: "numeric",

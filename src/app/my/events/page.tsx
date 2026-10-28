@@ -2,6 +2,7 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 
 export default async function MyEventsPage() {
   const user = await requireAuth();
@@ -65,18 +66,11 @@ export default async function MyEventsPage() {
                       {reg.event.title}
                     </Link>
                     <p className="mt-0.5 text-xs text-gray-500 sm:hidden">
-                      {new Date(reg.event.startDate).toLocaleDateString(localeDate[locale], {
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatEventDate(reg.event.startDate, localeDate[locale], { month: "short", day: "numeric" })}
                     </p>
                   </td>
                   <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">
-                    {new Date(reg.event.startDate).toLocaleDateString(localeDate[locale], {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatEventDate(reg.event.startDate, localeDate[locale])}
                   </td>
                   <td className="hidden px-4 py-3 text-gray-500 md:table-cell">
                     {reg.event.organization.name}

@@ -1,55 +1,58 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 
 export default async function DashboardPage() {
   const user = await requireRole("ORGANIZER");
   const { locale, t } = await getI18n();
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: user.id },
-    select: { organizationId: true },
-  });
-
-  const orgId = membership?.organizationId;
+  const organizations = await membershipOrganizations(user.id);
+  const orgIds = organizations.map((org) => org.id);
+  const hasOrgs = orgIds.length > 0;
   const now = new Date();
+  const orgEvent = { organizationId: { in: orgIds } };
 
-  const [upcomingCount, ticketsSold, checkedIn, paidTickets, events] = await Promise.all([
-    orgId
+  const [upcomingCount, ticketsSold, checkedIn, revenueAgg, events] = await Promise.all([
+    hasOrgs
       ? prisma.event.count({
-          where: { organizationId: orgId, status: "PUBLISHED", endDate: { gte: now } },
+          where: { ...orgEvent, status: "PUBLISHED", endDate: { gte: now } },
         })
       : 0,
-    orgId
+    hasOrgs
       ? prisma.registration.count({
           where: {
-            event: { organizationId: orgId },
+            event: orgEvent,
             status: { in: ["CONFIRMED", "CHECKED_IN"] },
           },
         })
       : 0,
-    orgId
+    hasOrgs
       ? prisma.registration.count({
-          where: { event: { organizationId: orgId }, status: "CHECKED_IN" },
+          where: { event: orgEvent, status: "CHECKED_IN" },
         })
       : 0,
-    orgId
-      ? prisma.registration.findMany({
+    hasOrgs
+      ? prisma.payment.aggregate({
           where: {
-            status: { in: ["CONFIRMED", "CHECKED_IN"] },
-            event: { organizationId: orgId, price: { gt: 0 } },
+            status: "COMPLETED",
+            registration: {
+              status: { in: ["CONFIRMED", "CHECKED_IN"] },
+              event: orgEvent,
+            },
           },
-          select: { event: { select: { price: true } } },
+          _sum: { amount: true },
         })
-      : [],
-    orgId
+      : null,
+    hasOrgs
       ? prisma.event.findMany({
-          where: { organizationId: orgId },
+          where: orgEvent,
           include: {
             _count: {
               select: {
-                registrations: { where: { status: { in: ["CONFIRMED", "CHECKED_IN"] } } },
+                registrations: { where: { status: { not: "CANCELLED" } } },
               },
             },
           },
@@ -58,7 +61,7 @@ export default async function DashboardPage() {
       : [],
   ]);
 
-  const revenue = paidTickets.reduce((sum, ticket) => sum + ticket.event.price, 0);
+  const revenue = revenueAgg?._sum.amount ?? 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -112,11 +115,7 @@ export default async function DashboardPage() {
                   <tr key={event.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-900">{event.title}</td>
                     <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">
-                      {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatEventDate(event.startDate, localeDate[locale])}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
                       {event._count.registrations}/{event.capacity}

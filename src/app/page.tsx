@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 import { EventCover } from "@/components/events/event-cover";
 import { Header } from "@/components/layout/header";
 
@@ -104,11 +105,7 @@ export default async function HomePage() {
                     <h3 className="font-semibold text-gray-900">{event.title}</h3>
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                       <span>
-                        {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {formatEventDate(event.startDate, localeDate[locale])}
                       </span>
                       <span>{event.location}</span>
                     </div>

@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { formatEventDate, formatEventTime } from "@/lib/format";
 import { RegisterButton } from "./register-button";
 
 export default async function EventDetailPage({
@@ -12,7 +13,8 @@ export default async function EventDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const { locale, t } = await getI18n();
 
   const event = await prisma.event.findUnique({
@@ -37,18 +39,10 @@ export default async function EventDetailPage({
   const spotsLeft = event.capacity - event._count.registrations;
   const isCancelled = event.status === "CANCELLED";
   const isPast = new Date(event.endDate) < new Date();
-  const dateLabel = new Date(event.startDate).toLocaleDateString(localeDate[locale], {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  const timeLabel = `${new Date(event.startDate).toLocaleTimeString(localeDate[locale], {
-    hour: "2-digit",
-    minute: "2-digit",
-  })} – ${new Date(event.endDate).toLocaleTimeString(localeDate[locale], {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
+  const startLabel = formatEventDate(event.startDate, localeDate[locale]);
+  const endLabel = formatEventDate(event.endDate, localeDate[locale]);
+  const dateLabel = startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+  const timeLabel = `${formatEventTime(event.startDate, localeDate[locale])} – ${formatEventTime(event.endDate, localeDate[locale])}`;
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">

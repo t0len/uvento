@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { membershipOrganizations } from "@/lib/organizations";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
 import { ConfirmPaymentButton } from "./confirm-payment-button";
 import { RemoveParticipantButton } from "./remove-participant-button";
@@ -17,22 +19,22 @@ export default async function DashboardRegistrationsPage({
   const filters = await searchParams;
   const { locale, t } = await getI18n();
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: user.id },
-    select: { organizationId: true },
-  });
+  const organizations = await membershipOrganizations(user.id);
+  const orgIds = organizations.map((org) => org.id);
 
-  const events = membership
-    ? await prisma.event.findMany({
-        where: { organizationId: membership.organizationId },
-        select: { id: true, title: true },
-        orderBy: { startDate: "desc" },
-      })
-    : [];
+  const events =
+    orgIds.length > 0
+      ? await prisma.event.findMany({
+          where: { organizationId: { in: orgIds } },
+          select: { id: true, title: true },
+          orderBy: { startDate: "desc" },
+        })
+      : [];
 
-  const registrations = membership
-    ? await prisma.registration.findMany({
-        where: registrationWhere(membership.organizationId, filters),
+  const registrations =
+    orgIds.length > 0
+      ? await prisma.registration.findMany({
+          where: registrationWhere(orgIds, filters),
         include: {
           user: { select: { name: true, email: true } },
           event: { select: { title: true, slug: true, price: true } },
@@ -148,10 +150,7 @@ export default async function DashboardRegistrationsPage({
                   </td>
                   <td className="px-4 py-3 text-gray-700">{reg.event.title}</td>
                   <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">
-                    {new Date(reg.createdAt).toLocaleDateString(localeDate[locale], {
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {formatEventDate(reg.createdAt, localeDate[locale], { month: "short", day: "numeric" })}
                   </td>
                   <td className="px-4 py-3">
                     <span

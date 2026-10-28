@@ -10,10 +10,10 @@ export type RegistrationFilters = {
   payment?: string;
 };
 
-export function registrationWhere(organizationId: string, filters: RegistrationFilters): Prisma.RegistrationWhereInput {
+export function registrationWhere(organizationIds: string[], filters: RegistrationFilters): Prisma.RegistrationWhereInput {
   const where: Prisma.RegistrationWhereInput = {
     event: {
-      organizationId,
+      organizationId: { in: organizationIds },
       ...(filters.event ? { id: filters.event } : {}),
     },
   };

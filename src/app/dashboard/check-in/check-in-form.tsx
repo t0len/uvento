@@ -11,18 +11,19 @@ type CheckInResult = {
   attendee?: { name: string; email: string; event: string };
 };
 
-export function CheckInForm() {
+export function CheckInForm({ events }: { events: { id: string; label: string }[] }) {
   const { t } = useI18n();
+  const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [ticketCode, setTicketCode] = useState("");
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<CheckInResult | null>(null);
 
   const submitCode = (code: string) => {
     const trimmed = code.trim();
-    if (!trimmed || isPending) return;
+    if (!trimmed || isPending || !eventId) return;
     setTicketCode(trimmed);
     startTransition(async () => {
-      const res = await checkIn(trimmed);
+      const res = await checkIn(trimmed, eventId);
       setResult(res);
       if (res.success) setTicketCode("");
     });
@@ -35,6 +36,20 @@ export function CheckInForm() {
 
   return (
     <div className="space-y-6">
+      <label className="block text-sm font-medium text-gray-700">
+        {t.dashboard.checkInEvent}
+        <select
+          value={eventId}
+          onChange={(event) => setEventId(event.target.value)}
+          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none focus:border-gray-500"
+        >
+          {events.map((event) => (
+            <option key={event.id} value={event.id}>
+              {event.label}
+            </option>
+          ))}
+        </select>
+      </label>
       <QrScanner onCode={submitCode} busy={isPending} />
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:flex-row">
         <input

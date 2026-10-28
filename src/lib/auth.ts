@@ -17,8 +17,9 @@ const nextAuth = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
+        const email = String(credentials.email).trim().toLowerCase();
+        const user = await prisma.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
         });
 
         if (!user) return null;
@@ -43,19 +44,27 @@ const nextAuth = NextAuth({
 
 export const { handlers, signIn, signOut, auth } = nextAuth;
 
-export async function requireAuth(): Promise<{ id: string; email: string; name: string; role: string }> {
+export type AuthUser = { id: string; email: string; name: string; role: string };
+
+export async function currentUser(): Promise<AuthUser | null> {
   const session = await auth();
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
+  if (!session?.user?.id) return null;
+
   const row = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { blocked: true },
+    select: { id: true, email: true, name: true, role: true, blocked: true },
   });
   if (!row || row.blocked) {
     await signOut({ redirectTo: "/login" });
+    redirect("/login");
   }
-  return session.user as { id: string; email: string; name: string; role: string };
+  return { id: row.id, email: row.email, name: row.name, role: row.role };
+}
+
+export async function requireAuth(): Promise<AuthUser> {
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  return user;
 }
 
 /** Home path after login — roles stay in separate workspaces. */

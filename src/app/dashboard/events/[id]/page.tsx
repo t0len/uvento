@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 import { EventActions } from "./event-actions";
 
 export default async function DashboardEventDetailPage({
@@ -22,7 +23,7 @@ export default async function DashboardEventDetailPage({
       registrations: {
         include: {
           user: { select: { name: true, email: true } },
-          payment: { select: { status: true } },
+          payment: { select: { status: true, amount: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -53,7 +54,7 @@ export default async function DashboardEventDetailPage({
             </span>
           </div>
           <p className="mt-1 text-sm text-gray-500">
-            {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
+            {formatEventDate(event.startDate, localeDate[locale], {
               month: "long",
               day: "numeric",
               year: "numeric",
@@ -83,8 +84,12 @@ export default async function DashboardEventDetailPage({
           <StatCard
             label={t.dashboard.revenue}
             value={`${event.registrations
-              .filter((r) => r.status === "CONFIRMED" || r.status === "CHECKED_IN")
-              .reduce((sum) => sum + event.price, 0)} KZT`}
+              .filter(
+                (registration) =>
+                  (registration.status === "CONFIRMED" || registration.status === "CHECKED_IN") &&
+                  registration.payment?.status === "COMPLETED",
+              )
+              .reduce((sum, registration) => sum + (registration.payment?.amount ?? 0), 0)} KZT`}
           />
         </div>
 

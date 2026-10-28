@@ -4,13 +4,15 @@ import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 
 export default async function OrganizationPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  const slug = decodeURIComponent(rawSlug);
   const { locale, t } = await getI18n();
 
   const org = await prisma.organization.findUnique({
@@ -66,11 +68,7 @@ export default async function OrganizationPage({
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900">{event.title}</h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatEventDate(event.startDate, localeDate[locale])}
                     {" · "}
                     {event.location}
                   </p>

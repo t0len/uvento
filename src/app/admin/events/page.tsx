@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 import { CancelEventButton } from "./cancel-event-button";
 
 export default async function AdminEventsPage() {
@@ -51,11 +52,7 @@ export default async function AdminEventsPage() {
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900">{event.title}</p>
                     <p className="text-xs text-gray-500">
-                      {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatEventDate(event.startDate, localeDate[locale])}
                     </p>
                   </td>
                   <td className="hidden px-4 py-3 text-gray-600 md:table-cell">

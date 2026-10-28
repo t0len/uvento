@@ -1,6 +1,7 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n } from "@/lib/i18n";
+import { AddMemberForm, CreateOrgForm, RemoveMemberButton } from "./org-controls";
 
 export default async function AdminOrganizationsPage() {
   await requireRole("ADMIN");
@@ -20,9 +21,14 @@ export default async function AdminOrganizationsPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{t.admin.orgsTitle}</h1>
-        <p className="mt-1 text-sm text-gray-500">{t.admin.orgsSub}</p>
+      <div className="mb-6 flex flex-col gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{t.admin.orgsTitle}</h1>
+          <p className="mt-1 text-sm text-gray-500">{t.admin.orgsSub}</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <CreateOrgForm />
+        </div>
       </div>
 
       {organizations.length === 0 ? (
@@ -51,7 +57,7 @@ export default async function AdminOrganizationsPage() {
 
               <div className="mt-4 border-t border-gray-100 pt-4">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-                  Members
+                  {t.admin.members}
                 </p>
                 {org.members.length === 0 ? (
                   <p className="text-sm text-gray-500">—</p>
@@ -70,11 +76,13 @@ export default async function AdminOrganizationsPage() {
                         <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-800">
                           {m.user.role}
                         </span>
+                        <RemoveMemberButton membershipId={m.id} />
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
+              <AddMemberForm organizationId={org.id} />
             </div>
           ))}
         </div>

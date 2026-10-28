@@ -1,24 +1,25 @@
 import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { formatEventDate } from "@/lib/format";
 
 export default async function DashboardEventsPage() {
   const user = await requireRole("ORGANIZER");
   const { locale, t } = await getI18n();
 
-  const membership = await prisma.organizationMember.findFirst({
-    where: { userId: user.id },
-    select: { organizationId: true },
-  });
+  const organizations = await membershipOrganizations(user.id);
+  const orgIds = organizations.map((org) => org.id);
 
-  const events = membership
-    ? await prisma.event.findMany({
-        where: { organizationId: membership.organizationId },
-        include: { _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } } },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
+  const events =
+    orgIds.length > 0
+      ? await prisma.event.findMany({
+          where: { organizationId: { in: orgIds } },
+          include: { _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } } },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -63,11 +64,7 @@ export default async function DashboardEventsPage() {
                     <p className="text-xs text-gray-500">{event.location}</p>
                   </td>
                   <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">
-                    {new Date(event.startDate).toLocaleDateString(localeDate[locale], {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatEventDate(event.startDate, localeDate[locale])}
                   </td>
                   <td className="px-4 py-3">
                     <StatusBadge

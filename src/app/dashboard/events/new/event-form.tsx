@@ -14,6 +14,7 @@ export type EventFormValues = {
   location: string;
   venue: string;
   date: string;
+  endDate: string;
   startTime: string;
   endTime: string;
   capacity: number;
@@ -26,10 +27,12 @@ export function EventForm({
   categories,
   eventId,
   initial,
+  organizations = [],
 }: {
   categories: Category[];
   eventId?: string;
   initial?: EventFormValues;
+  organizations?: { id: string; name: string }[];
 }) {
   const { t } = useI18n();
   const formRef = useRef<HTMLFormElement>(null);
@@ -134,6 +137,29 @@ export function EventForm({
         <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{state.error}</div>
       )}
 
+      {organizations.length > 1 ? (
+        <div>
+          <label htmlFor="organizationId" className="block text-sm font-medium text-gray-700">
+            {t.dashboard.formOrganization}
+          </label>
+          <select
+            id="organizationId"
+            name="organizationId"
+            required
+            defaultValue={organizations[0]?.id}
+            className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+          >
+            {organizations.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : organizations.length === 1 ? (
+        <input type="hidden" name="organizationId" value={organizations[0].id} />
+      ) : null}
+
       <div data-step="0" className={step === 0 ? "space-y-6" : "hidden"}>
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700">
@@ -149,7 +175,7 @@ export function EventForm({
             placeholder={t.dashboard.phTitle}
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-gray-700">
               {t.dashboard.formDate}
@@ -160,6 +186,19 @@ export function EventForm({
               type="date"
               required
               defaultValue={initial?.date}
+              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+            />
+          </div>
+          <div>
+            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700">
+              {t.dashboard.formEndDate}
+            </label>
+            <input
+              id="endDate"
+              name="endDate"
+              type="date"
+              required
+              defaultValue={initial?.endDate || initial?.date}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             />
           </div>

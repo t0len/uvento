@@ -21,7 +21,9 @@ export async function register(formData: FormData) {
 
   const { name, email, password } = validated.data;
 
-  const existingUser = await prisma.user.findUnique({ where: { email } });
+  const existingUser = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
   if (existingUser) {
     return { error: "Пользователь с таким email уже существует" };
   }
@@ -57,8 +59,9 @@ export async function login(formData: FormData) {
     return { error: validated.error.issues[0].message };
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: raw.email },
+  const { email, password } = validated.data;
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
     select: { role: true, passwordHash: true, blocked: true },
   });
 
@@ -70,15 +73,15 @@ export async function login(formData: FormData) {
     return { error: "Аккаунт заблокирован" };
   }
 
-  const passwordMatch = await bcrypt.compare(raw.password, user.passwordHash);
+  const passwordMatch = await bcrypt.compare(password, user.passwordHash);
   if (!passwordMatch) {
     return { error: "Неверный email или пароль" };
   }
 
   try {
     await signIn("credentials", {
-      email: raw.email,
-      password: raw.password,
+      email,
+      password,
       redirectTo: homePathForRole(user.role),
     });
   } catch (error) {
