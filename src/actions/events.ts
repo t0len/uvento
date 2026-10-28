@@ -3,7 +3,8 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { canCreateEvent, canEditEvent, canPublishEvent } from "@/lib/permissions";
-import { createEventSchema } from "@/lib/validations/events";
+import { publishGaps, readEventForm } from "@/lib/participation";
+import { releaseExpiredReservations } from "@/lib/reservations";
 import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
 import { getI18n } from "@/lib/i18n";
 import { deleteEventImage, saveEventImage } from "@/lib/uploads";
@@ -57,25 +58,16 @@ export async function createEvent(formData: FormData) {
   }
 
   const dates = eventDates(formData);
-  const raw = {
-    title: formData.get("title") as string,
-    description: formData.get("description") as string,
-    shortDescription: (formData.get("shortDescription") as string) || undefined,
-    location: formData.get("location") as string,
-    venue: (formData.get("venue") as string) || undefined,
-    startDate: dates.startDate,
-    endDate: dates.endDate,
-    capacity: formData.get("capacity") as string,
-    price: (formData.get("price") as string) || "0",
-    categoryIds: formData.getAll("categoryIds") as string[],
-  };
-
-  const validated = createEventSchema.safeParse(raw);
-  if (!validated.success) {
-    return { error: validated.error.issues[0].message };
+  const parsed = readEventForm(formData, dates.startDate, dates.endDate);
+  if ("error" in parsed) return { error: parsed.error };
+  const draft = parsed.data;
+  const publishing = formData.get("intent") === "publish";
+  if (publishing) {
+    const gaps = publishGaps(draft);
+    if (gaps.length > 0) return { error: gaps.join(". ") };
   }
 
-  const { title, description, shortDescription, location, venue, startDate, endDate, capacity, price, categoryIds } = validated.data;
+  const { title, description, shortDescription, location, venue, startDate, endDate, capacity, price, participationType, categoryIds } = draft;
 
   const memberships = await membershipOrganizations(user.id);
   if (memberships.length === 0) {
@@ -111,12 +103,13 @@ export async function createEvent(formData: FormData) {
       shortDescription,
       location,
       venue,
-      startDate: new Date(startDate),
-      endDate: new Date(endDate),
+      startDate,
+      endDate,
       capacity,
       price,
+      participationType,
       coverImageUrl,
-      status: formData.get("intent") === "publish" ? "PUBLISHED" : "DRAFT",
+      status: publishing ? "PUBLISHED" : "DRAFT",
       organizationId,
       categories: categoryIds?.length
         ? { create: categoryIds.map((id) => ({ categoryId: id })) }
@@ -143,56 +136,55 @@ export async function updateEvent(eventId: string, formData: FormData) {
     return { error: "Нет прав для редактирования" };
   }
 
-  const dates = eventDates(formData);
-  const raw = {
-    title: (formData.get("title") as string) || undefined,
-    description: (formData.get("description") as string) || undefined,
-    shortDescription: (formData.get("shortDescription") as string) || undefined,
-    location: (formData.get("location") as string) || undefined,
-    venue: (formData.get("venue") as string) || undefined,
-    startDate: dates.startDate || undefined,
-    endDate: dates.endDate || undefined,
-    capacity: (formData.get("capacity") as string) || undefined,
-    price: (formData.get("price") as string) || undefined,
-    categoryIds: formData.getAll("categoryIds") as string[],
-  };
-
-  const validated = createEventSchema.safeParse(raw);
-  if (!validated.success) {
-    return { error: validated.error.issues[0].message };
+  const seenAt = String(formData.get("updatedAt") || "");
+  if (seenAt && event.updatedAt.toISOString() !== seenAt) {
+    return { error: "Событие уже изменилось. Откройте страницу ещё раз." };
   }
 
-  const data: Record<string, unknown> = {};
-  const { categoryIds, capacity, ...fields } = validated.data;
-  if (capacity !== undefined) {
+  const dates = eventDates(formData);
+  const parsed = readEventForm(formData, dates.startDate, dates.endDate);
+  if ("error" in parsed) return { error: parsed.error };
+  const draft = parsed.data;
+  if (event.status === "PUBLISHED") {
+    const gaps = publishGaps(draft);
+    if (gaps.length > 0) return { error: gaps.join(". ") };
+  }
+
+  if (draft.capacity != null) {
+    await releaseExpiredReservations();
     const active = await prisma.registration.count({
       where: { eventId, status: { not: "CANCELLED" } },
     });
-    if (capacity < active) {
+    if (draft.capacity < active) {
       return { error: "Вместимость меньше числа текущих участников" };
-    }
-    data.capacity = capacity;
-  }
-  for (const [key, value] of Object.entries(fields)) {
-    if (value !== undefined) {
-      if (key === "startDate" || key === "endDate") {
-        data[key] = new Date(value as string);
-      } else {
-        data[key] = value;
-      }
     }
   }
 
+  const data = {
+    title: draft.title,
+    description: draft.description,
+    shortDescription: draft.shortDescription ?? null,
+    location: draft.location,
+    venue: draft.venue ?? null,
+    startDate: draft.startDate,
+    endDate: draft.endDate,
+    capacity: draft.capacity,
+    price: draft.price,
+    participationType: draft.participationType,
+  };
+  const categoryIds = draft.categoryIds;
+
   const cover = formData.get("cover");
+  let coverImageUrl: string | undefined;
   if (cover instanceof File && cover.size > 0) {
     const saved = await saveEventImage(cover);
     if (saved.error) return { error: await imageError(saved.error) };
-    data.coverImageUrl = saved.url;
+    coverImageUrl = saved.url;
   }
 
   await prisma.event.update({
     where: { id: eventId },
-    data,
+    data: coverImageUrl ? { ...data, coverImageUrl } : data,
   });
 
   if (categoryIds) {
@@ -207,7 +199,7 @@ export async function updateEvent(eventId: string, formData: FormData) {
   revalidatePath(`/dashboard/events/${eventId}`);
   revalidatePath("/events");
   revalidatePath(`/events/${event.slug}`);
-  if (typeof data.coverImageUrl === "string") {
+  if (coverImageUrl) {
     await deleteEventImage(event.coverImageUrl);
   }
   redirect(`/dashboard/events/${eventId}`);
@@ -230,6 +222,9 @@ export async function publishEvent(eventId: string) {
   if (event.status !== "DRAFT") {
     return { error: "Можно опубликовать только черновик" };
   }
+
+  const gaps = publishGaps(event);
+  if (gaps.length > 0) return { error: gaps.join(". ") };
 
   await prisma.event.update({
     where: { id: eventId },

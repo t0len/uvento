@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
 import { ConfirmPaymentButton } from "./confirm-payment-button";
 import { RemoveParticipantButton } from "./remove-participant-button";
@@ -15,6 +16,7 @@ export default async function DashboardRegistrationsPage({
 }: {
   searchParams: Promise<RegistrationFilters>;
 }) {
+  await releaseExpiredReservations();
   const user = await requireRole("ORGANIZER");
   const filters = await searchParams;
   const { locale, t } = await getI18n();
@@ -138,6 +140,7 @@ export default async function DashboardRegistrationsPage({
                 <th className="hidden px-4 py-3 font-medium text-gray-700 md:table-cell">
                   {t.dashboard.payment}
                 </th>
+                <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.attendance}</th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.actions}</th>
               </tr>
             </thead>
@@ -156,15 +159,19 @@ export default async function DashboardRegistrationsPage({
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[reg.status] || "bg-gray-100"}`}
                     >
-                      {t.status[reg.status as keyof typeof t.status] || reg.status}
+                      {t.status[(reg.status === "CHECKED_IN" ? "CONFIRMED" : reg.status) as keyof typeof t.status] ||
+                        reg.status}
                     </span>
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
                     <span className="text-gray-600">
                       {reg.payment
                         ? t.payment[reg.payment.status as keyof typeof t.payment] || reg.payment.status
-                        : t.payment.none}
+                        : t.payment.notApplicable}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">
+                    {reg.status === "CHECKED_IN" ? t.dashboard.attended : t.dashboard.notAttended}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">

@@ -51,6 +51,8 @@ export default async function EditEventPage({
             endTime: end.time,
             capacity: event.capacity,
             price: event.price,
+            participationType: event.participationType,
+            updatedAt: event.updatedAt.toISOString(),
             categoryIds: event.categories.map((item) => item.categoryId),
             coverImageUrl: event.coverImageUrl,
           }}

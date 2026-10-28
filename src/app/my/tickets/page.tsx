@@ -2,11 +2,13 @@ import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 import { TicketList, type TicketItem } from "./ticket-list";
 
 export default async function MyTicketsPage() {
   const user = await requireAuth();
   const { locale, t } = await getI18n();
+  await releaseExpiredReservations();
 
   const registrations = await prisma.registration.findMany({
     where: { userId: user.id, status: { not: "CANCELLED" } },
@@ -45,7 +47,8 @@ export default async function MyTicketsPage() {
         year: "numeric",
       }),
       place: [registration.event.venue, registration.event.location].filter(Boolean).join(" · "),
-      upcoming: new Date(registration.event.endDate) >= now,
+      upcoming: registration.event.endDate ? registration.event.endDate >= now : true,
+      reservedUntil: registration.reservedUntil?.toISOString() ?? null,
     };
   });
 

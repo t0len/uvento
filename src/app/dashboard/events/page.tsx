@@ -73,7 +73,7 @@ export default async function DashboardEventsPage() {
                     />
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {event._count.registrations}/{event.capacity}
+                    {event._count.registrations}/{event.capacity ?? "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Link

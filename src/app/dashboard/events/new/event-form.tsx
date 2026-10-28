@@ -17,10 +17,12 @@ export type EventFormValues = {
   endDate: string;
   startTime: string;
   endTime: string;
-  capacity: number;
+  capacity: number | null;
   price: number;
+  participationType?: "OPEN" | "FREE" | "PAID";
   categoryIds: string[];
   coverImageUrl: string | null;
+  updatedAt?: string;
 };
 
 export function EventForm({
@@ -159,6 +161,7 @@ export function EventForm({
       ) : organizations.length === 1 ? (
         <input type="hidden" name="organizationId" value={organizations[0].id} />
       ) : null}
+      {initial?.updatedAt ? <input type="hidden" name="updatedAt" value={initial.updatedAt} /> : null}
 
       <div data-step="0" className={step === 0 ? "space-y-6" : "hidden"}>
         <div>
@@ -184,7 +187,6 @@ export function EventForm({
               id="date"
               name="date"
               type="date"
-              required
               defaultValue={initial?.date}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             />
@@ -197,7 +199,6 @@ export function EventForm({
               id="endDate"
               name="endDate"
               type="date"
-              required
               defaultValue={initial?.endDate || initial?.date}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             />
@@ -210,7 +211,6 @@ export function EventForm({
               id="startTime"
               name="startTime"
               type="time"
-              required
               defaultValue={initial?.startTime}
               className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             />
@@ -239,7 +239,6 @@ export function EventForm({
             id="location"
             name="location"
             type="text"
-            required
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             defaultValue={initial?.location}
             placeholder={t.dashboard.phLocation}
@@ -266,7 +265,6 @@ export function EventForm({
         <textarea
           id="description"
           name="description"
-          required
           rows={5}
           className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
           defaultValue={initial?.description}
@@ -291,6 +289,21 @@ export function EventForm({
       </div>
 
       <div data-step="2" className={step === 2 ? "space-y-6" : "hidden"}>
+      <div>
+        <label htmlFor="participationType" className="block text-sm font-medium text-gray-700">
+          {t.dashboard.formParticipation}
+        </label>
+        <select
+          id="participationType"
+          name="participationType"
+          defaultValue={initial?.participationType ?? "FREE"}
+          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+        >
+          <option value="OPEN">{t.events.openEvent}</option>
+          <option value="FREE">{t.events.freeEvent}</option>
+          <option value="PAID">{t.events.paidEvent}</option>
+        </select>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="price" className="block text-sm font-medium text-gray-700">
@@ -314,9 +327,8 @@ export function EventForm({
             id="capacity"
             name="capacity"
             type="number"
-            required
             min={1}
-            defaultValue={initial?.capacity}
+            defaultValue={initial?.capacity ?? ""}
             className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
             placeholder="100"
           />
@@ -398,7 +410,8 @@ export function EventForm({
           >
             {t.dashboard.stepNext}
           </button>
-        ) : eventId ? (
+        ) : null}
+        {eventId ? (
           <button
             type="submit"
             disabled={isPending || compressing}
@@ -417,15 +430,17 @@ export function EventForm({
             >
               {t.dashboard.saveDraft}
             </button>
-            <button
-              type="submit"
-              name="intent"
-              value="publish"
-              disabled={isPending || compressing}
-              className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-            >
-              {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
-            </button>
+            {step === steps.length - 1 ? (
+              <button
+                type="submit"
+                name="intent"
+                value="publish"
+                disabled={isPending || compressing}
+                className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
+              </button>
+            ) : null}
           </>
         )}
       </div>

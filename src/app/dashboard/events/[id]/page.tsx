@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 import { EventActions } from "./event-actions";
 
 export default async function DashboardEventDetailPage({
@@ -12,6 +13,7 @@ export default async function DashboardEventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  await releaseExpiredReservations();
   const user = await requireRole("ORGANIZER");
   const { locale, t } = await getI18n();
 
@@ -75,7 +77,7 @@ export default async function DashboardEventDetailPage({
         <div className="space-y-4">
           <StatCard
             label={t.dashboard.registrations}
-            value={`${event._count.registrations}/${event.capacity}`}
+            value={`${event._count.registrations}/${event.capacity ?? "—"}`}
           />
           <StatCard
             label={t.eventDetail.price}

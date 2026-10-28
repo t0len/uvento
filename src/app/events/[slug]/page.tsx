@@ -6,6 +6,7 @@ import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate, formatEventTime } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 import { RegisterButton } from "./register-button";
 
 export default async function EventDetailPage({
@@ -16,6 +17,7 @@ export default async function EventDetailPage({
   const { slug: rawSlug } = await params;
   const slug = decodeURIComponent(rawSlug);
   const { locale, t } = await getI18n();
+  await releaseExpiredReservations();
 
   const event = await prisma.event.findUnique({
     where: { slug },
@@ -36,9 +38,9 @@ export default async function EventDetailPage({
     });
   }
 
-  const spotsLeft = event.capacity - event._count.registrations;
+  const spotsLeft = event.capacity == null ? null : event.capacity - event._count.registrations;
   const isCancelled = event.status === "CANCELLED";
-  const isPast = new Date(event.endDate) < new Date();
+  const isPast = event.endDate ? event.endDate < new Date() : false;
   const startLabel = formatEventDate(event.startDate, localeDate[locale]);
   const endLabel = formatEventDate(event.endDate, localeDate[locale]);
   const dateLabel = startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
@@ -92,11 +94,13 @@ export default async function EventDetailPage({
               )}
             </div>
             <p className="mt-4 text-xs text-gray-400">
-              {spotsLeft > 0
-                ? `${spotsLeft} ${t.events.spots}`
-                : t.eventDetail.soldOut}
-              {" · "}
-              {t.eventDetail.registered}: {event._count.registrations}
+              {event.participationType === "OPEN"
+                ? t.events.openEvent
+                : spotsLeft != null && spotsLeft > 0
+                  ? `${spotsLeft} ${t.events.spots}`
+                  : t.eventDetail.soldOut}
+              {event.participationType === "PAID" ? ` · ${event.price} KZT` : ""}
+              {event.participationType === "FREE" ? ` · ${t.events.freeEvent}` : ""}
             </p>
           </div>
         </div>
@@ -118,7 +122,15 @@ export default async function EventDetailPage({
             registrationId={userRegistration?.id ?? null}
             isCancelled={isCancelled}
             isPast={isPast}
-            isFull={spotsLeft <= 0 && userRegistration?.status !== "CONFIRMED" && userRegistration?.status !== "PENDING"}
+            isFull={
+              spotsLeft != null &&
+              spotsLeft <= 0 &&
+              userRegistration?.status !== "CONFIRMED" &&
+              userRegistration?.status !== "PENDING" &&
+              userRegistration?.status !== "CHECKED_IN"
+            }
+            participationType={event.participationType}
+            reservedUntil={userRegistration?.reservedUntil?.toISOString() ?? null}
           />
         </section>
       </main>

@@ -57,7 +57,7 @@ export async function checkIn(ticketCode: string, eventId: string) {
   });
   if (!membership && user.role !== "ADMIN") return { error: "Это событие другой организации" };
   if (registration.event.status === "CANCELLED") return { error: "Событие отменено" };
-  if (registration.event.endDate < now) return { error: "Событие уже закончилось" };
+  if (registration.event.endDate && registration.event.endDate < now) return { error: "Событие уже закончилось" };
   if (registration.event.status !== "PUBLISHED") return { error: "Регистрация на это мероприятие закрыта" };
   if (registration.status === "CANCELLED") return { error: "Регистрация отменена" };
   if (registration.status === "CHECKED_IN") {

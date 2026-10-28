@@ -1,8 +1,10 @@
 "use server";
 
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { requireRole } from "@/lib/auth";
+import { registerSchema } from "@/lib/validations/auth";
 import { prisma } from "@/lib/prisma";
 import { canChangeRole, canManageUsers } from "@/lib/permissions";
 import { cancelEventWithTickets } from "@/lib/cancel-event";
@@ -60,6 +62,59 @@ export async function setUserBlocked(userId: string, blocked: boolean) {
 
   revalidatePath("/admin/users");
   return { success: true };
+}
+
+export async function createOrganizerAccount(formData: FormData) {
+  await requireRole("ADMIN");
+  const parsed = registerSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("password"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const organizationId = String(formData.get("organizationId") || "");
+  const organization = organizationId
+    ? await prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } })
+    : null;
+  if (!organization) return { error: "Выберите организацию" };
+
+  const { name, email, password } = parsed.data;
+  const existing = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  if (existing) return { error: "Аккаунт с этой почтой уже есть" };
+
+  const passwordHash = await bcrypt.hash(password, 10);
+  await prisma.user.create({
+    data: {
+      name,
+      email,
+      passwordHash,
+      role: "ORGANIZER",
+      organizationMemberships: { create: { organizationId: organization.id, role: "member" } },
+    },
+  });
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin");
+  revalidatePath("/admin/organizations");
+  return { success: true as const };
+}
+
+export async function deleteUserAccount(userId: string) {
+  const admin = await requireRole("ADMIN");
+  if (!canManageUsers(admin)) return { error: "Недостаточно прав" };
+  if (userId === admin.id) return { error: "Нельзя удалить свой аккаунт" };
+
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!user) return { error: "Пользователь не найден" };
+
+  await prisma.user.delete({ where: { id: userId } });
+  revalidatePath("/admin/users");
+  revalidatePath("/admin");
+  return { success: true as const };
 }
 
 export async function adminCancelEvent(eventId: string) {

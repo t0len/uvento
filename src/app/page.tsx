@@ -2,11 +2,13 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 import { EventCover } from "@/components/events/event-cover";
 import { Header } from "@/components/layout/header";
 
 export default async function HomePage() {
   const { locale, t } = await getI18n();
+  await releaseExpiredReservations();
 
   const events = await prisma.event.findMany({
     where: { status: "PUBLISHED", endDate: { gte: new Date() } },

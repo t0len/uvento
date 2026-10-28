@@ -65,7 +65,7 @@ export default async function AdminEventsPage() {
                     />
                   </td>
                   <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
-                    {event._count.registrations}/{event.capacity}
+                    {event._count.registrations}/{event.capacity ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">

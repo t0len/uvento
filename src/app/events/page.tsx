@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
-import { formatKzt, formatEventDate } from "@/lib/format";
+import { formatKzt, formatEventDate, formatEventTime } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 
 export default async function EventsPage({
   searchParams,
@@ -12,6 +13,7 @@ export default async function EventsPage({
 }) {
   const params = await searchParams;
   const { locale, t } = await getI18n();
+  await releaseExpiredReservations();
   const pageSize = 9;
   const page = Math.max(1, Number(params.page) || 1);
 
@@ -108,7 +110,7 @@ export default async function EventsPage({
 
         {events.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-gray-500">{t.events.noResults}</p>
+            <p className="text-gray-500">{params.q || params.category ? t.events.noResults : t.events.noUpcoming}</p>
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -124,6 +126,7 @@ export default async function EventsPage({
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
                     <span>
                       {formatEventDate(event.startDate, localeDate[locale])}
+                      {event.startDate ? ` · ${formatEventTime(event.startDate, localeDate[locale])}` : ""}
                     </span>
                     <span>{event.location}</span>
                   </div>
@@ -142,11 +145,20 @@ export default async function EventsPage({
                       ))}
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">
-                        {Math.max(event.capacity - event._count.registrations, 0)} {t.events.spots}
+                      {event.capacity != null ? (
+                        <span className="text-xs text-gray-400">
+                          {Math.max(event.capacity - event._count.registrations, 0)} {t.events.spots}
+                        </span>
+                      ) : null}
+                      <span className="text-xs text-gray-500">
+                        {event.participationType === "OPEN"
+                          ? t.events.openEvent
+                          : event.participationType === "PAID"
+                            ? t.events.paidEvent
+                            : t.events.freeEvent}
                       </span>
                       <span className="text-sm font-medium text-gray-900">
-                        {formatKzt(event.price, t.events.free)}
+                        {event.participationType === "PAID" ? formatKzt(event.price, t.events.free) : t.events.free}
                       </span>
                     </div>
                   </div>

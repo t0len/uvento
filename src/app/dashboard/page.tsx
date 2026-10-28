@@ -4,18 +4,20 @@ import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { releaseExpiredReservations } from "@/lib/reservations";
 
 export default async function DashboardPage() {
   const user = await requireRole("ORGANIZER");
   const { locale, t } = await getI18n();
 
+  await releaseExpiredReservations();
   const organizations = await membershipOrganizations(user.id);
   const orgIds = organizations.map((org) => org.id);
   const hasOrgs = orgIds.length > 0;
   const now = new Date();
   const orgEvent = { organizationId: { in: orgIds } };
 
-  const [upcomingCount, ticketsSold, checkedIn, revenueAgg, events] = await Promise.all([
+  const [upcomingCount, ticketsSold, checkedIn, revenueAgg, events, attendedRows] = await Promise.all([
     hasOrgs
       ? prisma.event.count({
           where: { ...orgEvent, status: "PUBLISHED", endDate: { gte: now } },
@@ -59,7 +61,15 @@ export default async function DashboardPage() {
           orderBy: { startDate: "asc" },
         })
       : [],
+    hasOrgs
+      ? prisma.registration.groupBy({
+          by: ["eventId"],
+          where: { status: "CHECKED_IN", event: orgEvent },
+          _count: { _all: true },
+        })
+      : [],
   ]);
+  const attendedByEvent = new Map(attendedRows.map((row) => [row.eventId, row._count._all]));
 
   const revenue = revenueAgg?._sum.amount ?? 0;
 
@@ -101,13 +111,14 @@ export default async function DashboardPage() {
                   {t.dashboard.date}
                 </th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.seats}</th>
+                <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.attendance}</th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.status}</th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {events.map((event) => {
-                const isUpcoming = event.status === "PUBLISHED" && event.endDate >= now;
+                const isUpcoming = event.status === "PUBLISHED" && event.endDate != null && event.endDate >= now;
                 const label = isUpcoming
                   ? t.dashboard.upcoming
                   : t.status[event.status as keyof typeof t.status] || event.status;
@@ -118,8 +129,9 @@ export default async function DashboardPage() {
                       {formatEventDate(event.startDate, localeDate[locale])}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
-                      {event._count.registrations}/{event.capacity}
+                      {event._count.registrations}/{event.capacity ?? "—"}
                     </td>
+                    <td className="px-4 py-3 text-gray-600">{attendedByEvent.get(event.id) ?? 0}</td>
                     <td className="px-4 py-3">
                       <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
                         {label}

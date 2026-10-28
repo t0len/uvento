@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getI18n, tReplace } from "@/lib/i18n";
 import { RoleSelect } from "./role-select";
 import { BlockButton } from "./block-button";
+import { CreateOrganizerForm, DeleteUserButton } from "./user-controls";
 
 export default async function AdminUsersPage({
   searchParams,
@@ -14,7 +15,8 @@ export default async function AdminUsersPage({
   const { t } = await getI18n();
   const query = q?.trim();
 
-  const users = await prisma.user.findMany({
+  const [users, organizations] = await Promise.all([
+    prisma.user.findMany({
     where: query
       ? {
           OR: [
@@ -30,7 +32,9 @@ export default async function AdminUsersPage({
       },
       _count: { select: { registrations: true } },
     },
-  });
+  }),
+    prisma.organization.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+  ]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -51,6 +55,8 @@ export default async function AdminUsersPage({
           />
         </form>
       </div>
+
+      <CreateOrganizerForm organizations={organizations} />
 
       {users.length === 0 ? (
         <div className="mt-12 text-center text-gray-500">{t.admin.noUsers}</div>
@@ -88,7 +94,14 @@ export default async function AdminUsersPage({
                   </td>
                   <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">{u._count.registrations}</td>
                   <td className="px-4 py-3">
-                    {u.id === admin.id ? "—" : <BlockButton userId={u.id} blocked={u.blocked} />}
+                    {u.id === admin.id ? (
+                      "—"
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        <BlockButton userId={u.id} blocked={u.blocked} />
+                        <DeleteUserButton userId={u.id} />
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

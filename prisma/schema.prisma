@@ -21,6 +21,12 @@ enum EventStatus {
   COMPLETED
 }
 
+enum ParticipationType {
+  OPEN
+  FREE
+  PAID
+}
+
 enum RegistrationStatus {
   PENDING
   CONFIRMED
@@ -89,16 +95,17 @@ model Event {
   id               String      @id @default(cuid())
   title            String
   slug             String      @unique
-  description      String
-  shortDescription String?
-  coverImageUrl    String?
-  location         String
-  venue            String?
-  startDate        DateTime
-  endDate          DateTime
-  capacity         Int
-  price            Int         @default(0)
-  status           EventStatus @default(DRAFT)
+  description       String            @default("")
+  shortDescription  String?
+  coverImageUrl     String?
+  location          String            @default("")
+  venue             String?
+  startDate         DateTime?
+  endDate           DateTime?
+  capacity          Int?
+  price             Int               @default(0)
+  participationType ParticipationType @default(FREE)
+  status            EventStatus       @default(DRAFT)
   organizationId   String
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
@@ -137,8 +144,9 @@ model Registration {
   userId      String
   eventId     String
   status      RegistrationStatus @default(PENDING)
-  ticketCode  String             @unique @default(cuid())
-  checkedInAt DateTime?
+  ticketCode    String             @unique @default(cuid())
+  checkedInAt   DateTime?
+  reservedUntil DateTime?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
 

@@ -6,7 +6,8 @@ export function formatKzt(amount: number, freeLabel: string) {
   return `₸ ${new Intl.NumberFormat("ru-RU").format(amount)}`;
 }
 
-export function dateTimeParts(value: Date) {
+export function dateTimeParts(value: Date | null | undefined) {
+  if (!value) return { date: "", time: "" };
   const formatted = new Intl.DateTimeFormat("en-CA", {
     timeZone: EVENT_TIME_ZONE,
     year: "numeric",
@@ -37,14 +38,16 @@ export function addHoursLocal(date: string, time: string, hours: number) {
 }
 
 export function formatEventDate(
-  value: Date,
+  value: Date | null | undefined,
   locale: string,
   options: Intl.DateTimeFormatOptions = { month: "short", day: "numeric", year: "numeric" },
 ) {
+  if (!value) return "";
   return new Intl.DateTimeFormat(locale, { timeZone: EVENT_TIME_ZONE, ...options }).format(value);
 }
 
-export function formatEventTime(value: Date, locale: string) {
+export function formatEventTime(value: Date | null | undefined, locale: string) {
+  if (!value) return "";
   return new Intl.DateTimeFormat(locale, {
     timeZone: EVENT_TIME_ZONE,
     hour: "2-digit",

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { QRTicket } from "./qr-ticket";
+import { MockPayForm } from "@/app/events/[slug]/mock-pay-form";
 
 export type TicketItem = {
   id: string;
@@ -15,6 +16,7 @@ export type TicketItem = {
   when: string;
   place: string;
   upcoming: boolean;
+  reservedUntil: string | null;
 };
 
 export function TicketList({ tickets }: { tickets: TicketItem[] }) {
@@ -59,8 +61,8 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                   {showQr ? (
                     <QRTicket ticketCode={ticket.ticketCode} eventTitle={ticket.title} hint={t.myTickets.showAtEntrance} />
                   ) : (
-                    <div className="flex aspect-square w-full max-w-[240px] items-center justify-center rounded-lg bg-gray-100 text-xs text-gray-400">
-                      QR
+                    <div className="flex aspect-square w-full max-w-[240px] items-center justify-center rounded-lg bg-gray-100 px-4 text-center text-xs text-gray-500">
+                      {t.myTickets.pendingNoQr}
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
@@ -74,11 +76,14 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{ticket.when}</p>
                     <p className="text-sm text-gray-500">{ticket.place}</p>
-                    {open && (
+                    {open && showQr && (
                       <p className="mt-3 text-xs text-gray-500">
                         {t.my.ticketCode}: {ticket.ticketCode}
                       </p>
                     )}
+                    {ticket.status === "PENDING" ? (
+                      <MockPayForm registrationId={ticket.id} reservedUntil={ticket.reservedUntil} />
+                    ) : null}
                   </div>
                 </div>
                 <button

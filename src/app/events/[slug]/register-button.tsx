@@ -5,6 +5,7 @@ import { registerForEvent, cancelRegistration } from "@/actions/registrations";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { formatKzt } from "@/lib/format";
+import { MockPayForm } from "./mock-pay-form";
 
 export function RegisterButton({
   eventId,
@@ -15,6 +16,8 @@ export function RegisterButton({
   isCancelled,
   isPast,
   isFull,
+  participationType,
+  reservedUntil,
 }: {
   eventId: string;
   price: number;
@@ -24,11 +27,14 @@ export function RegisterButton({
   isCancelled: boolean;
   isPast: boolean;
   isFull: boolean;
+  participationType: "OPEN" | "FREE" | "PAID";
+  reservedUntil: string | null;
 }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState(existingStatus);
   const [currentRegistrationId, setCurrentRegistrationId] = useState(registrationId);
+  const [heldUntil, setHeldUntil] = useState(reservedUntil);
   const { t } = useI18n();
   const priceLabel = formatKzt(price, t.common.free);
 
@@ -68,7 +74,9 @@ export function RegisterButton({
 
   let action: ReactNode;
 
-  if (!isLoggedIn) {
+  if (participationType === "OPEN") {
+    action = <p className="mt-4 text-sm text-gray-600">{t.events.openEvent}</p>;
+  } else if (!isLoggedIn) {
     action = (
       <Link
         href="/login"
@@ -125,6 +133,7 @@ export function RegisterButton({
             else if (res?.success) {
               setStatus(res.status);
               setCurrentRegistrationId(res.registrationId);
+              setHeldUntil(res.reservedUntil);
             }
           });
         }}
@@ -140,6 +149,13 @@ export function RegisterButton({
     <div>
       {ticketRow}
       {action}
+      {status === "PENDING" && currentRegistrationId ? (
+        <MockPayForm
+          registrationId={currentRegistrationId}
+          reservedUntil={heldUntil}
+          onPaid={() => setStatus("CONFIRMED")}
+        />
+      ) : null}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );
