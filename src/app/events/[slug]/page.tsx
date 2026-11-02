@@ -5,8 +5,10 @@ import { auth } from "@/lib/auth";
 import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
-import { formatEventDate, formatEventTime } from "@/lib/format";
+import { formatEventDate, formatEventTime, formatKzt } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
+import { categoryLabel } from "@/lib/categories";
+import { occupiedSeats } from "@/lib/seats";
 import { RegisterButton } from "./register-button";
 
 export default async function EventDetailPage({
@@ -24,7 +26,6 @@ export default async function EventDetailPage({
     include: {
       organization: { select: { name: true, slug: true } },
       categories: { include: { category: true } },
-      _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },
     },
   });
 
@@ -38,7 +39,10 @@ export default async function EventDetailPage({
     });
   }
 
-  const spotsLeft = event.capacity == null ? null : event.capacity - event._count.registrations;
+  const taken = await occupiedSeats(event.id);
+  const spotsLeft = event.capacity == null ? null : event.capacity - taken;
+  const activeRegistration =
+    userRegistration && userRegistration.status !== "CANCELLED" ? userRegistration : null;
   const isCancelled = event.status === "CANCELLED";
   const isPast = event.endDate ? event.endDate < new Date() : false;
   const startLabel = formatEventDate(event.startDate, localeDate[locale]);
@@ -84,7 +88,7 @@ export default async function EventDetailPage({
                   key={ec.categoryId}
                   className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600"
                 >
-                  {ec.category.name}
+                  {categoryLabel(t, ec.category)}
                 </span>
               ))}
               {isCancelled && (
@@ -99,7 +103,7 @@ export default async function EventDetailPage({
                 : spotsLeft != null && spotsLeft > 0
                   ? `${spotsLeft} ${t.events.spots}`
                   : t.eventDetail.soldOut}
-              {event.participationType === "PAID" ? ` · ${event.price} KZT` : ""}
+              {event.participationType === "PAID" ? ` · ${formatKzt(event.price, t.common.free, locale)}` : ""}
               {event.participationType === "FREE" ? ` · ${t.events.freeEvent}` : ""}
             </p>
           </div>
@@ -118,19 +122,15 @@ export default async function EventDetailPage({
             eventId={event.id}
             price={event.price}
             isLoggedIn={!!session?.user}
-            existingStatus={userRegistration?.status ?? null}
-            registrationId={userRegistration?.id ?? null}
+            existingStatus={activeRegistration?.status ?? null}
+            registrationId={activeRegistration?.id ?? null}
             isCancelled={isCancelled}
             isPast={isPast}
-            isFull={
-              spotsLeft != null &&
-              spotsLeft <= 0 &&
-              userRegistration?.status !== "CONFIRMED" &&
-              userRegistration?.status !== "PENDING" &&
-              userRegistration?.status !== "CHECKED_IN"
-            }
+            isFull={spotsLeft != null && spotsLeft <= 0 && !activeRegistration}
+            spotsLeft={spotsLeft}
+            existingQuantity={activeRegistration?.quantity ?? 1}
             participationType={event.participationType}
-            reservedUntil={userRegistration?.reservedUntil?.toISOString() ?? null}
+            reservedUntil={activeRegistration?.reservedUntil?.toISOString() ?? null}
           />
         </section>
       </main>

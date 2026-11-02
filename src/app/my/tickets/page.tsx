@@ -1,7 +1,7 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getI18n, localeDate, tReplace } from "@/lib/i18n";
-import { formatEventDate } from "@/lib/format";
+import { getI18n, localeDate } from "@/lib/i18n";
+import { countTickets, formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { TicketList, type TicketItem } from "./ticket-list";
 
@@ -49,6 +49,7 @@ export default async function MyTicketsPage() {
       place: [registration.event.venue, registration.event.location].filter(Boolean).join(" · "),
       upcoming: registration.event.endDate ? registration.event.endDate >= now : true,
       reservedUntil: registration.reservedUntil?.toISOString() ?? null,
+      quantity: registration.quantity,
     };
   });
 
@@ -56,7 +57,12 @@ export default async function MyTicketsPage() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">{t.myTickets.title}</h1>
       <p className="mt-1 text-sm text-gray-500">
-        {tickets.length === 0 ? t.myTickets.subtitle : tReplace(t.myTickets.count, { count: tickets.length })}
+        {tickets.length === 0
+          ? t.myTickets.subtitle
+          : countTickets(
+              tickets.reduce((sum, ticket) => sum + ticket.quantity, 0),
+              locale,
+            )}
       </p>
       <TicketList tickets={tickets} />
     </div>

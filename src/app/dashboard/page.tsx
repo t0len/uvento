@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
-import { formatEventDate } from "@/lib/format";
+import { formatEventDate, formatKzt } from "@/lib/format";
+import { occupiedSeatsByEvent } from "@/lib/seats";
 import { releaseExpiredReservations } from "@/lib/reservations";
 
 export default async function DashboardPage() {
@@ -17,25 +18,27 @@ export default async function DashboardPage() {
   const now = new Date();
   const orgEvent = { organizationId: { in: orgIds } };
 
-  const [upcomingCount, ticketsSold, checkedIn, revenueAgg, events, attendedRows] = await Promise.all([
+  const [upcomingCount, ticketsSoldAgg, checkedInAgg, revenueAgg, events, attendedRows] = await Promise.all([
     hasOrgs
       ? prisma.event.count({
           where: { ...orgEvent, status: "PUBLISHED", endDate: { gte: now } },
         })
       : 0,
     hasOrgs
-      ? prisma.registration.count({
+      ? prisma.registration.aggregate({
           where: {
             event: orgEvent,
             status: { in: ["CONFIRMED", "CHECKED_IN"] },
           },
+          _sum: { quantity: true },
         })
-      : 0,
+      : null,
     hasOrgs
-      ? prisma.registration.count({
+      ? prisma.registration.aggregate({
           where: { event: orgEvent, status: "CHECKED_IN" },
+          _sum: { quantity: true },
         })
-      : 0,
+      : null,
     hasOrgs
       ? prisma.payment.aggregate({
           where: {
@@ -51,13 +54,6 @@ export default async function DashboardPage() {
     hasOrgs
       ? prisma.event.findMany({
           where: orgEvent,
-          include: {
-            _count: {
-              select: {
-                registrations: { where: { status: { not: "CANCELLED" } } },
-              },
-            },
-          },
           orderBy: { startDate: "asc" },
         })
       : [],
@@ -65,13 +61,16 @@ export default async function DashboardPage() {
       ? prisma.registration.groupBy({
           by: ["eventId"],
           where: { status: "CHECKED_IN", event: orgEvent },
-          _count: { _all: true },
+          _sum: { quantity: true },
         })
       : [],
   ]);
-  const attendedByEvent = new Map(attendedRows.map((row) => [row.eventId, row._count._all]));
+  const attendedByEvent = new Map(attendedRows.map((row) => [row.eventId, row._sum.quantity ?? 0]));
+  const seats = await occupiedSeatsByEvent(events.map((event) => event.id));
 
   const revenue = revenueAgg?._sum.amount ?? 0;
+  const ticketsSold = ticketsSoldAgg?._sum.quantity ?? 0;
+  const checkedIn = checkedInAgg?._sum.quantity ?? 0;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -92,7 +91,7 @@ export default async function DashboardPage() {
         <Stat label={t.dashboard.upcomingEvents} value={String(upcomingCount)} />
         <Stat label={t.dashboard.ticketsSold} value={String(ticketsSold)} />
         <Stat label={t.dashboard.checkedInStat} value={String(checkedIn)} />
-        <Stat label={t.dashboard.revenue} value={`${revenue} KZT`} />
+        <Stat label={t.dashboard.revenue} value={formatKzt(revenue, t.common.free, locale)} />
       </div>
 
       <h2 className="mb-4 mt-10 text-lg font-semibold text-gray-900">{t.dashboard.yourEvents}</h2>
@@ -129,7 +128,7 @@ export default async function DashboardPage() {
                       {formatEventDate(event.startDate, localeDate[locale])}
                     </td>
                     <td className="px-4 py-3 text-gray-600">
-                      {event._count.registrations}/{event.capacity ?? "—"}
+                      {(seats.get(event.id) ?? 0)}/{event.capacity ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-gray-600">{attendedByEvent.get(event.id) ?? 0}</td>
                     <td className="px-4 py-3">

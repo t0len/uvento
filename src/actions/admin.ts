@@ -8,6 +8,13 @@ import { registerSchema } from "@/lib/validations/auth";
 import { prisma } from "@/lib/prisma";
 import { canChangeRole, canManageUsers } from "@/lib/permissions";
 import { cancelEventWithTickets } from "@/lib/cancel-event";
+import { getI18n } from "@/lib/i18n";
+import { errorText } from "@/lib/error-text";
+
+async function say(code: string) {
+  const { t } = await getI18n();
+  return errorText(t, code);
+}
 
 const ROLES: UserRole[] = ["STUDENT", "ORGANIZER", "ADMIN"];
 
@@ -15,15 +22,15 @@ export async function updateUserRole(userId: string, role: string) {
   const admin = await requireRole("ADMIN");
 
   if (!canChangeRole(admin) || !canManageUsers(admin)) {
-    return { error: "Недостаточно прав" };
+    return { error: await say("noRights") };
   }
 
   if (!ROLES.includes(role as UserRole)) {
-    return { error: "Некорректная роль" };
+    return { error: await say("badRole") };
   }
 
   if (userId === admin.id && role !== "ADMIN") {
-    return { error: "Нельзя снять роль ADMIN с самого себя" };
+    return { error: await say("cannotDemoteSelf") };
   }
 
   if (role === "ORGANIZER") {
@@ -31,7 +38,7 @@ export async function updateUserRole(userId: string, role: string) {
       where: { userId },
       select: { id: true },
     });
-    if (!membership) return { error: "Сначала добавьте пользователя в организацию" };
+    if (!membership) return { error: await say("addToOrgFirst") };
   }
 
   await prisma.user.update({
@@ -48,11 +55,11 @@ export async function setUserBlocked(userId: string, blocked: boolean) {
   const admin = await requireRole("ADMIN");
 
   if (!canManageUsers(admin)) {
-    return { error: "Недостаточно прав" };
+    return { error: await say("noRights") };
   }
 
   if (userId === admin.id) {
-    return { error: "Нельзя заблокировать самого себя" };
+    return { error: await say("cannotBlockSelf") };
   }
 
   await prisma.user.update({
@@ -72,19 +79,19 @@ export async function createOrganizerAccount(formData: FormData) {
     password: formData.get("password"),
     confirmPassword: formData.get("password"),
   });
-  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (!parsed.success) return { error: await say(parsed.error.issues[0].message) };
 
   const organizationId = String(formData.get("organizationId") || "");
   const organization = organizationId
     ? await prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true } })
     : null;
-  if (!organization) return { error: "Выберите организацию" };
+  if (!organization) return { error: await say("chooseOrganization") };
 
   const { name, email, password } = parsed.data;
   const existing = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
   });
-  if (existing) return { error: "Аккаунт с этой почтой уже есть" };
+  if (existing) return { error: await say("emailTaken") };
 
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.user.create({
@@ -105,11 +112,11 @@ export async function createOrganizerAccount(formData: FormData) {
 
 export async function deleteUserAccount(userId: string) {
   const admin = await requireRole("ADMIN");
-  if (!canManageUsers(admin)) return { error: "Недостаточно прав" };
-  if (userId === admin.id) return { error: "Нельзя удалить свой аккаунт" };
+  if (!canManageUsers(admin)) return { error: await say("noRights") };
+  if (userId === admin.id) return { error: await say("cannotDeleteSelf") };
 
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
-  if (!user) return { error: "Пользователь не найден" };
+  if (!user) return { error: await say("userNotFound") };
 
   await prisma.user.delete({ where: { id: userId } });
   revalidatePath("/admin/users");
@@ -122,11 +129,11 @@ export async function adminCancelEvent(eventId: string) {
 
   const event = await prisma.event.findUnique({ where: { id: eventId } });
   if (!event) {
-    return { error: "Событие не найдено" };
+    return { error: await say("eventNotFound") };
   }
 
   if (event.status === "CANCELLED") {
-    return { error: "Событие уже отменено" };
+    return { error: await say("eventAlreadyCancelled") };
   }
 
   await cancelEventWithTickets(eventId);
@@ -151,7 +158,7 @@ function slugify(text: string) {
 export async function createOrganization(formData: FormData) {
   await requireRole("ADMIN");
   const name = String(formData.get("name") || "").trim();
-  if (name.length < 2) return { error: "Укажите название организации" };
+  if (name.length < 2) return { error: await say("orgNameShort") };
 
   let slug = slugify(name);
   if (!slug) slug = `org-${Date.now().toString(36)}`;
@@ -167,26 +174,26 @@ export async function createOrganization(formData: FormData) {
 export async function addOrganizationMember(organizationId: string, formData: FormData) {
   await requireRole("ADMIN");
   const email = String(formData.get("email") || "").trim().toLowerCase();
-  if (!email) return { error: "Укажите почту" };
+  if (!email) return { error: await say("emailRequired") };
 
   const user = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
     select: { id: true },
   });
-  if (!user) return { error: "Пользователь с такой почтой не найден" };
+  if (!user) return { error: await say("userEmailNotFound") };
 
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: { id: true },
   });
-  if (!organization) return { error: "Организация не найдена" };
+  if (!organization) return { error: await say("orgNotFound") };
 
   try {
     await prisma.organizationMember.create({
       data: { userId: user.id, organizationId, role: "member" },
     });
   } catch {
-    return { error: "Пользователь уже в этой организации" };
+    return { error: await say("alreadyMember") };
   }
 
   revalidatePath("/admin/organizations");
@@ -199,7 +206,7 @@ export async function removeOrganizationMember(membershipId: string) {
   try {
     await prisma.organizationMember.delete({ where: { id: membershipId } });
   } catch {
-    return { error: "Не удалось убрать участника" };
+    return { error: await say("cannotRemoveMember") };
   }
   revalidatePath("/admin/organizations");
   revalidatePath("/admin/users");

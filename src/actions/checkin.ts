@@ -3,14 +3,22 @@
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { formatEventDate, formatEventTime } from "@/lib/format";
+import { getI18n, localeDate, tReplace } from "@/lib/i18n";
+import { errorText } from "@/lib/error-text";
 import { revalidatePath } from "next/cache";
+
+async function say(code: string) {
+  const { t } = await getI18n();
+  return errorText(t, code);
+}
 
 export async function checkIn(ticketCode: string, eventId: string) {
   const user = await requireAuth();
+  const { locale, t } = await getI18n();
   if (user.role !== "ORGANIZER" && user.role !== "ADMIN") {
-    return { error: "Нет прав для чек-ина" };
+    return { error: errorText(t, "noCheckInRights") };
   }
-  if (!eventId) return { error: "Выберите событие" };
+  if (!eventId) return { error: errorText(t, "chooseEvent") };
 
   const now = new Date();
   const updated = await prisma.registration.updateMany({
@@ -44,28 +52,29 @@ export async function checkIn(ticketCode: string, eventId: string) {
         name: registration.user.name,
         email: registration.user.email,
         event: registration.event.title,
+        quantity: registration.quantity,
       },
     };
   }
 
-  if (!registration) return { error: "Билет не найден" };
-  if (registration.eventId !== eventId) return { error: "Это билет другого события" };
+  if (!registration) return { error: await say("ticketNotFound") };
+  if (registration.eventId !== eventId) return { error: await say("wrongEventTicket") };
 
   const membership = await prisma.organizationMember.findFirst({
     where: { userId: user.id, organizationId: registration.event.organizationId },
     select: { id: true },
   });
-  if (!membership && user.role !== "ADMIN") return { error: "Это событие другой организации" };
-  if (registration.event.status === "CANCELLED") return { error: "Событие отменено" };
-  if (registration.event.endDate && registration.event.endDate < now) return { error: "Событие уже закончилось" };
-  if (registration.event.status !== "PUBLISHED") return { error: "Регистрация на это мероприятие закрыта" };
-  if (registration.status === "CANCELLED") return { error: "Регистрация отменена" };
+  if (!membership && user.role !== "ADMIN") return { error: await say("otherOrg") };
+  if (registration.event.status === "CANCELLED") return { error: await say("eventCancelled") };
+  if (registration.event.endDate && registration.event.endDate < now) return { error: await say("eventEnded") };
+  if (registration.event.status !== "PUBLISHED") return { error: await say("registrationClosed") };
+  if (registration.status === "CANCELLED") return { error: await say("registrationCancelled") };
   if (registration.status === "CHECKED_IN") {
     const when = registration.checkedInAt
-      ? `${formatEventDate(registration.checkedInAt, "ru-RU")} ${formatEventTime(registration.checkedInAt, "ru-RU")}`
+      ? ` (${formatEventDate(registration.checkedInAt, localeDate[locale])} ${formatEventTime(registration.checkedInAt, localeDate[locale])})`
       : "";
-    return { error: `Уже отмечен: ${registration.user.name}${when ? ` (${when})` : ""}` };
+    return { error: tReplace(t.errors.alreadyCheckedIn, { name: registration.user.name, when }) };
   }
-  if (registration.status === "PENDING") return { error: "Оплата не подтверждена" };
-  return { error: "Билет не найден" };
+  if (registration.status === "PENDING") return { error: await say("paymentNotConfirmed") };
+  return { error: await say("ticketNotFound") };
 }

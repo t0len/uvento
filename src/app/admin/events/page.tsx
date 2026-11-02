@@ -3,6 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { occupiedSeatsByEvent } from "@/lib/seats";
 import { CancelEventButton } from "./cancel-event-button";
 
 export default async function AdminEventsPage() {
@@ -13,11 +14,9 @@ export default async function AdminEventsPage() {
     orderBy: { startDate: "desc" },
     include: {
       organization: { select: { name: true, slug: true } },
-      _count: {
-        select: { registrations: { where: { status: { not: "CANCELLED" } } } },
-      },
     },
   });
+  const seats = await occupiedSeatsByEvent(events.map((event) => event.id));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -65,7 +64,7 @@ export default async function AdminEventsPage() {
                     />
                   </td>
                   <td className="hidden px-4 py-3 text-gray-600 sm:table-cell">
-                    {event._count.registrations}/{event.capacity ?? "—"}
+                    {(seats.get(event.id) ?? 0)}/{event.capacity ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">

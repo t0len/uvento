@@ -3,6 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import { createEvent, updateEvent } from "@/actions/events";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { categoryLabel } from "@/lib/categories";
 import { compressCover } from "@/lib/compress-cover";
 
 type Category = { id: string; name: string; slug: string };
@@ -353,7 +354,7 @@ export function EventForm({
                   defaultChecked={initial?.categoryIds.includes(cat.id)}
                   className="sr-only"
                 />
-                {cat.name}
+                {categoryLabel(t, cat)}
               </label>
             ))}
           </div>

@@ -1,9 +1,20 @@
 export const EVENT_TIME_ZONE = "Asia/Almaty";
 const ALMATY_OFFSET = "+05:00";
 
-export function formatKzt(amount: number, freeLabel: string) {
+export function formatKzt(amount: number, freeLabel: string, locale = "ru") {
   if (amount <= 0) return freeLabel;
-  return `₸ ${new Intl.NumberFormat("ru-RU").format(amount)}`;
+  const numberLocale = locale === "en" ? "en-US" : locale === "kk" ? "kk-KZ" : "ru-RU";
+  return `₸ ${new Intl.NumberFormat(numberLocale).format(amount)}`;
+}
+
+export function countTickets(count: number, locale: string) {
+  if (locale === "en") return `${count} ${count === 1 ? "ticket" : "tickets"}`;
+  if (locale === "kk") return `${count} билет`;
+  const abs = Math.abs(count) % 100;
+  const last = abs % 10;
+  const word =
+    abs > 10 && abs < 20 ? "билетов" : last === 1 ? "билет" : last >= 2 && last <= 4 ? "билета" : "билетов";
+  return `${count} ${word}`;
 }
 
 export function dateTimeParts(value: Date | null | undefined) {

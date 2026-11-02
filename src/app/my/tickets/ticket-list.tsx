@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { countTickets } from "@/lib/format";
 import { QRTicket } from "./qr-ticket";
 import { MockPayForm } from "@/app/events/[slug]/mock-pay-form";
 
@@ -17,10 +18,11 @@ export type TicketItem = {
   place: string;
   upcoming: boolean;
   reservedUntil: string | null;
+  quantity: number;
 };
 
 export function TicketList({ tickets }: { tickets: TicketItem[] }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
   const [openId, setOpenId] = useState<string | null>(null);
   const visible = tickets.filter((ticket) => (tab === "upcoming" ? ticket.upcoming : !ticket.upcoming));
@@ -76,6 +78,11 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{ticket.when}</p>
                     <p className="text-sm text-gray-500">{ticket.place}</p>
+                    {ticket.quantity > 1 ? (
+                      <p className="mt-1 text-sm text-gray-700">
+                        {countTickets(ticket.quantity, locale)}
+                      </p>
+                    ) : null}
                     {open && showQr && (
                       <p className="mt-3 text-xs text-gray-500">
                         {t.my.ticketCode}: {ticket.ticketCode}

@@ -1,5 +1,6 @@
 import { requireAuth } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n";
+import { ProfileForm } from "./profile-form";
 
 export default async function MySettingsPage() {
   const user = await requireAuth();
@@ -15,7 +16,7 @@ export default async function MySettingsPage() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">{t.my.settings}</h1>
-      <p className="mt-1 text-sm text-gray-500">{t.my.profileReadonly}</p>
+      <p className="mt-1 text-sm text-gray-500">{t.my.settingsSub}</p>
 
       <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6">
         <div className="flex items-center gap-4">
@@ -29,10 +30,7 @@ export default async function MySettingsPage() {
         </div>
 
         <div className="mt-6 space-y-4 border-t border-gray-200 pt-6">
-          <div>
-            <label className="text-sm font-medium text-gray-500">{t.common.name}</label>
-            <p className="mt-1 text-gray-900">{user.name}</p>
-          </div>
+          <ProfileForm name={user.name} />
           <div>
             <label className="text-sm font-medium text-gray-500">{t.common.email}</label>
             <p className="mt-1 text-gray-900">{user.email}</p>

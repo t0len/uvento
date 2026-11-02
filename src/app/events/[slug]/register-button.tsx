@@ -4,7 +4,8 @@ import { useState, useTransition, type ReactNode } from "react";
 import { registerForEvent, cancelRegistration } from "@/actions/registrations";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
-import { formatKzt } from "@/lib/format";
+import { countTickets, formatKzt } from "@/lib/format";
+import { MAX_TICKETS_PER_ORDER } from "@/lib/tickets";
 import { MockPayForm } from "./mock-pay-form";
 
 export function RegisterButton({
@@ -16,6 +17,8 @@ export function RegisterButton({
   isCancelled,
   isPast,
   isFull,
+  spotsLeft,
+  existingQuantity,
   participationType,
   reservedUntil,
 }: {
@@ -27,6 +30,8 @@ export function RegisterButton({
   isCancelled: boolean;
   isPast: boolean;
   isFull: boolean;
+  spotsLeft: number | null;
+  existingQuantity: number;
   participationType: "OPEN" | "FREE" | "PAID";
   reservedUntil: string | null;
 }) {
@@ -35,8 +40,15 @@ export function RegisterButton({
   const [status, setStatus] = useState(existingStatus);
   const [currentRegistrationId, setCurrentRegistrationId] = useState(registrationId);
   const [heldUntil, setHeldUntil] = useState(reservedUntil);
-  const { t } = useI18n();
-  const priceLabel = formatKzt(price, t.common.free);
+  const { locale, t } = useI18n();
+  const booked =
+    status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
+  const room = spotsLeft == null ? MAX_TICKETS_PER_ORDER : Math.max(spotsLeft, 0);
+  const max = booked ? Math.max(existingQuantity, 1) : Math.min(MAX_TICKETS_PER_ORDER, room);
+  const [quantity, setQuantity] = useState(booked ? Math.max(existingQuantity, 1) : 1);
+  const totalLabel = formatKzt(price * quantity, t.common.free, locale);
+  const canAdd = !booked && quantity < max;
+  const canRemove = !booked && quantity > 1;
 
   const ticketRow = (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -44,31 +56,43 @@ export function RegisterButton({
         <div>
           <p className="font-medium text-gray-900">{t.eventDetail.standardTicket}</p>
           <p className="mt-1 text-sm text-gray-500">{t.eventDetail.ticketAccess}</p>
+          {price > 0 && quantity > 1 ? (
+            <p className="mt-1 text-xs text-gray-400">
+              {formatKzt(price, t.common.free, locale)} × {quantity}
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold text-gray-900">{priceLabel}</span>
-          <div className="flex items-center rounded-lg border border-gray-200">
-            <button
-              type="button"
-              disabled
-              title={t.eventDetail.onePerPerson}
-              className="px-3 py-1.5 text-gray-300"
-            >
-              −
-            </button>
-            <span className="min-w-6 text-center text-sm text-gray-900">1</span>
-            <button
-              type="button"
-              disabled
-              title={t.eventDetail.onePerPerson}
-              className="px-3 py-1.5 text-gray-300"
-            >
-              +
-            </button>
-          </div>
+          <span className="text-sm font-semibold tabular-nums text-gray-900">{totalLabel}</span>
+          {participationType !== "OPEN" && !booked ? (
+            <div className="flex items-center rounded-lg border border-gray-200 bg-white">
+              <button
+                type="button"
+                aria-label={t.eventDetail.removeTicket}
+                disabled={!canRemove}
+                onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                className="px-3 py-2 text-base leading-none text-gray-800 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
+              >
+                −
+              </button>
+              <span className="min-w-8 text-center text-sm font-medium tabular-nums text-gray-900">{quantity}</span>
+              <button
+                type="button"
+                aria-label={t.eventDetail.addTicket}
+                disabled={!canAdd}
+                onClick={() => setQuantity((current) => Math.min(max, current + 1))}
+                className="px-3 py-2 text-base leading-none text-gray-900 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
+              >
+                +
+              </button>
+            </div>
+          ) : quantity > 1 ? (
+            <span className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-800">
+              {countTickets(quantity, locale)}
+            </span>
+          ) : null}
         </div>
       </div>
-      <p className="mt-2 text-xs text-gray-400">{t.eventDetail.onePerPerson}</p>
     </div>
   );
 
@@ -80,7 +104,7 @@ export function RegisterButton({
     action = (
       <Link
         href="/login"
-        className="mt-4 flex w-full items-center justify-center rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800"
+        className="mt-4 flex w-full items-center justify-center rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-950"
       >
         {t.eventDetail.book}
       </Link>
@@ -128,7 +152,7 @@ export function RegisterButton({
         onClick={() => {
           startTransition(async () => {
             setError(null);
-            const res = await registerForEvent(eventId);
+            const res = await registerForEvent(eventId, quantity);
             if (res?.error) setError(res.error);
             else if (res?.success) {
               setStatus(res.status);

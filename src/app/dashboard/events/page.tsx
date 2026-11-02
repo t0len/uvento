@@ -4,6 +4,7 @@ import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
+import { occupiedSeatsByEvent } from "@/lib/seats";
 
 export default async function DashboardEventsPage() {
   const user = await requireRole("ORGANIZER");
@@ -16,10 +17,10 @@ export default async function DashboardEventsPage() {
     orgIds.length > 0
       ? await prisma.event.findMany({
           where: { organizationId: { in: orgIds } },
-          include: { _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } } },
           orderBy: { createdAt: "desc" },
         })
       : [];
+  const seats = await occupiedSeatsByEvent(events.map((event) => event.id));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -73,7 +74,7 @@ export default async function DashboardEventsPage() {
                     />
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {event._count.registrations}/{event.capacity ?? "—"}
+                    {(seats.get(event.id) ?? 0)}/{event.capacity ?? "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Link

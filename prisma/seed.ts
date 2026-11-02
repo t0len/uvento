@@ -21,10 +21,10 @@ async function main() {
 
   const organizer = await prisma.user.upsert({
     where: { email: "organizer@uvento.kz" },
-    update: {},
+    update: { name: "Organizer" },
     create: {
       email: "organizer@uvento.kz",
-      name: "Организатор",
+      name: "Organizer",
       passwordHash: organizerPassword,
       role: "ORGANIZER",
     },
@@ -32,11 +32,11 @@ async function main() {
 
   const org = await prisma.organization.upsert({
     where: { slug: "kbtu-student-council" },
-    update: {},
+    update: { description: "Student council of KBTU" },
     create: {
       name: "KBTU Student Council",
       slug: "kbtu-student-council",
-      description: "Студенческий совет КБТУ",
+      description: "Student council of KBTU",
       contactEmail: "council@kbtu.kz",
       members: {
         create: {
@@ -51,10 +51,10 @@ async function main() {
 
   const student = await prisma.user.upsert({
     where: { email: "student@uvento.kz" },
-    update: {},
+    update: { name: "Student" },
     create: {
       email: "student@uvento.kz",
-      name: "Студент",
+      name: "Student",
       passwordHash: studentPassword,
       role: "STUDENT",
     },
@@ -62,38 +62,38 @@ async function main() {
 
   const concert = await prisma.category.upsert({
     where: { slug: "concert" },
-    update: {},
-    create: { name: "Концерт", slug: "concert" },
+    update: { name: "Concert" },
+    create: { name: "Concert", slug: "concert" },
   });
 
   const workshop = await prisma.category.upsert({
     where: { slug: "workshop" },
-    update: {},
-    create: { name: "Воркшоп", slug: "workshop" },
+    update: { name: "Workshop" },
+    create: { name: "Workshop", slug: "workshop" },
   });
 
   const sport = await prisma.category.upsert({
     where: { slug: "sport" },
-    update: {},
-    create: { name: "Спорт", slug: "sport" },
+    update: { name: "Sport" },
+    create: { name: "Sport", slug: "sport" },
   });
 
   const party = await prisma.category.upsert({
     where: { slug: "party" },
-    update: {},
-    create: { name: "Вечеринка", slug: "party" },
+    update: { name: "Party" },
+    create: { name: "Party", slug: "party" },
   });
 
   const lecture = await prisma.category.upsert({
     where: { slug: "lecture" },
-    update: {},
-    create: { name: "Лекция", slug: "lecture" },
+    update: { name: "Lecture" },
+    create: { name: "Lecture", slug: "lecture" },
   });
 
   const conference = await prisma.category.upsert({
     where: { slug: "conference" },
-    update: {},
-    create: { name: "Конференция", slug: "conference" },
+    update: { name: "Conference" },
+    create: { name: "Conference", slug: "conference" },
   });
 
   // Sample events

@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
-import { formatEventDate } from "@/lib/format";
+import { formatEventDate, formatKzt } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { EventActions } from "./event-actions";
 
@@ -29,13 +29,18 @@ export default async function DashboardEventDetailPage({
         },
         orderBy: { createdAt: "desc" },
       },
-      _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },
     },
   });
 
   if (!event) notFound();
 
   const isMember = event.organization.members.some((m) => m.userId === user.id);
+  if (!isMember) notFound();
+
+  const heldSeats = event.registrations.reduce(
+    (sum, registration) => sum + (registration.status === "CANCELLED" ? 0 : registration.quantity),
+    0,
+  );
   if (!isMember) notFound();
 
   const statusColors: Record<string, string> = {
@@ -69,7 +74,7 @@ export default async function DashboardEventDetailPage({
           eventId={event.id}
           status={event.status}
           slug={event.slug}
-          canDelete={event.status === "DRAFT" || event._count.registrations === 0}
+          canDelete={event.status === "DRAFT" || heldSeats === 0}
         />
       </div>
 
@@ -77,21 +82,25 @@ export default async function DashboardEventDetailPage({
         <div className="space-y-4">
           <StatCard
             label={t.dashboard.registrations}
-            value={`${event._count.registrations}/${event.capacity ?? "—"}`}
+            value={`${heldSeats}/${event.capacity ?? "—"}`}
           />
           <StatCard
             label={t.eventDetail.price}
-            value={event.price > 0 ? `${event.price} KZT` : t.common.free}
+            value={formatKzt(event.price, t.common.free, locale)}
           />
           <StatCard
             label={t.dashboard.revenue}
-            value={`${event.registrations
-              .filter(
-                (registration) =>
-                  (registration.status === "CONFIRMED" || registration.status === "CHECKED_IN") &&
-                  registration.payment?.status === "COMPLETED",
-              )
-              .reduce((sum, registration) => sum + (registration.payment?.amount ?? 0), 0)} KZT`}
+            value={formatKzt(
+              event.registrations
+                .filter(
+                  (registration) =>
+                    (registration.status === "CONFIRMED" || registration.status === "CHECKED_IN") &&
+                    registration.payment?.status === "COMPLETED",
+                )
+                .reduce((sum, registration) => sum + (registration.payment?.amount ?? 0), 0),
+              t.common.free,
+              locale,
+            )}
           />
         </div>
 
@@ -123,7 +132,12 @@ export default async function DashboardEventDetailPage({
                 <tbody className="divide-y divide-gray-50">
                   {event.registrations.map((reg) => (
                     <tr key={reg.id}>
-                      <td className="px-4 py-2 text-gray-900">{reg.user.name}</td>
+                      <td className="px-4 py-2 text-gray-900">
+                        {reg.user.name}
+                        {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
+                          <span className="ml-2 text-xs text-gray-500">×{reg.quantity}</span>
+                        ) : null}
+                      </td>
                       <td className="hidden px-4 py-2 text-gray-500 sm:table-cell">{reg.user.email}</td>
                       <td className="px-4 py-2">
                         <RegBadge

@@ -4,6 +4,7 @@ import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { EventCover } from "@/components/events/event-cover";
+import { categoryLabel } from "@/lib/categories";
 import { Header } from "@/components/layout/header";
 
 export default async function HomePage() {
@@ -14,7 +15,6 @@ export default async function HomePage() {
     where: { status: "PUBLISHED", endDate: { gte: new Date() } },
     include: {
       categories: { include: { category: true } },
-      _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },
     },
     orderBy: { startDate: "asc" },
     take: 6,
@@ -118,7 +118,7 @@ export default async function HomePage() {
                             key={ec.categoryId}
                             className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600"
                           >
-                            {ec.category.name}
+                            {categoryLabel(t, ec.category)}
                           </span>
                         ))}
                       </div>

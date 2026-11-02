@@ -148,7 +148,12 @@ export default async function DashboardRegistrationsPage({
               {registrations.map((reg) => (
                 <tr key={reg.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{reg.user.name}</p>
+                    <p className="font-medium text-gray-900">
+                      {reg.user.name}
+                      {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
+                        <span className="ml-2 text-xs font-normal text-gray-500">×{reg.quantity}</span>
+                      ) : null}
+                    </p>
                     <p className="text-xs text-gray-500">{reg.user.email}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-700">{reg.event.title}</td>

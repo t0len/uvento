@@ -4,6 +4,8 @@ import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatKzt, formatEventDate, formatEventTime } from "@/lib/format";
+import { categoryLabel } from "@/lib/categories";
+import { occupiedSeatsByEvent } from "@/lib/seats";
 import { releaseExpiredReservations } from "@/lib/reservations";
 
 export default async function EventsPage({
@@ -40,7 +42,6 @@ export default async function EventsPage({
       include: {
         organization: { select: { name: true } },
         categories: { include: { category: true } },
-        _count: { select: { registrations: { where: { status: { not: "CANCELLED" } } } } },
       },
       orderBy: { startDate: "asc" },
       skip: (page - 1) * pageSize,
@@ -49,6 +50,10 @@ export default async function EventsPage({
     prisma.category.findMany({ orderBy: { name: "asc" } }),
   ]);
   const pages = Math.max(1, Math.ceil(total / pageSize));
+  const seats = await occupiedSeatsByEvent(events.map((event) => event.id));
+  const categoryFilters = categories
+    .map((cat) => ({ ...cat, label: categoryLabel(t, cat) }))
+    .sort((a, b) => a.label.localeCompare(b.label, locale));
 
   function pageHref(nextPage: number) {
     const query = new URLSearchParams();
@@ -93,17 +98,17 @@ export default async function EventsPage({
           >
             {t.events.allCategories}
           </Link>
-          {categories.map((cat) => (
+          {categoryFilters.map((cat) => (
             <Link
               key={cat.id}
               href={`/events?category=${cat.slug}`}
-              className={`rounded-full border px-3 py-1 text-sm ${
+              className={`rounded-full border px-3 py-1 text-sm active:scale-[0.98] ${
                 params.category === cat.slug
                   ? "border-gray-900 bg-gray-900 text-white"
-                  : "border-gray-300 text-gray-600 hover:bg-gray-100"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-100 active:bg-gray-200"
               }`}
             >
-              {cat.name}
+              {cat.label}
             </Link>
           ))}
         </div>
@@ -140,14 +145,14 @@ export default async function EventsPage({
                           key={ec.categoryId}
                           className="rounded-full border border-gray-200 px-3 py-1 text-xs text-gray-600"
                         >
-                          {ec.category.name}
+                          {categoryLabel(t, ec.category)}
                         </span>
                       ))}
                     </div>
                     <div className="flex items-center gap-3">
                       {event.capacity != null ? (
                         <span className="text-xs text-gray-400">
-                          {Math.max(event.capacity - event._count.registrations, 0)} {t.events.spots}
+                          {Math.max(event.capacity - (seats.get(event.id) ?? 0), 0)} {t.events.spots}
                         </span>
                       ) : null}
                       <span className="text-xs text-gray-500">
@@ -157,9 +162,11 @@ export default async function EventsPage({
                             ? t.events.paidEvent
                             : t.events.freeEvent}
                       </span>
-                      <span className="text-sm font-medium text-gray-900">
-                        {event.participationType === "PAID" ? formatKzt(event.price, t.events.free) : t.events.free}
-                      </span>
+                      {event.participationType === "PAID" ? (
+                        <span className="text-sm font-medium text-gray-900">
+                          {formatKzt(event.price, t.events.free, locale)}
+                        </span>
+                      ) : null}
                     </div>
                   </div>
                 </div>

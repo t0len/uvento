@@ -81,7 +81,7 @@ export function LanguageSwitcher({ compact }: { compact?: boolean }) {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t.nav.language}
-        className={`inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 ${
+        className={`inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 disabled:opacity-60 ${
           compact ? "px-2 py-1.5 text-xs" : "px-2.5 py-1.5"
         }`}
       >
@@ -108,7 +108,7 @@ export function LanguageSwitcher({ compact }: { compact?: boolean }) {
                 <button
                   type="button"
                   onClick={() => select(code)}
-                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 ${
+                  className={`flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-gray-50 active:bg-gray-100 ${
                     active ? "font-medium text-gray-900" : "text-gray-600"
                   }`}
                 >

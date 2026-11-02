@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/header";
+import { OrgMark } from "@/components/organizations/org-mark";
 import { getI18n, tReplace } from "@/lib/i18n";
 
 export default async function OrganizationsPage({
@@ -25,7 +26,7 @@ export default async function OrganizationsPage({
       _count: {
         select: {
           members: true,
-          events: { where: { status: "PUBLISHED" } },
+          events: { where: { status: "PUBLISHED", endDate: { gte: new Date() } } },
         },
       },
     },
@@ -61,13 +62,11 @@ export default async function OrganizationsPage({
                 href={`/organizations/${org.slug}`}
                 className="block rounded-xl border border-gray-200 bg-white p-5 transition-shadow hover:shadow-md"
               >
-                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-lg bg-gray-200 text-xs text-gray-400">
-                  {org.logoUrl ? (
-                    <img src={org.logoUrl} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    "Logo"
-                  )}
-                </div>
+                {org.logoUrl ? (
+                  <img src={org.logoUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                ) : (
+                  <OrgMark name={org.name} />
+                )}
                 <h3 className="mt-4 font-semibold text-gray-900">{org.name}</h3>
                 <p className="mt-1 line-clamp-2 min-h-10 text-sm text-gray-500">
                   {org.description}

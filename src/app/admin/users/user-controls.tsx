@@ -81,17 +81,20 @@ export function CreateOrganizerForm({ organizations }: { organizations: { id: st
 export function DeleteUserButton({ userId }: { userId: string }) {
   const { t } = useI18n();
   const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
+    <div>
     <button
       type="button"
       disabled={pending}
       onClick={() => {
         if (!window.confirm(t.admin.deleteUserConfirm)) return;
+        setError(null);
         startTransition(async () => {
           const result = await deleteUserAccount(userId);
-          if (result.error) alert(result.error);
+          if (result.error) setError(result.error);
           else router.refresh();
         });
       }}
@@ -99,5 +102,7 @@ export function DeleteUserButton({ userId }: { userId: string }) {
     >
       {pending ? "…" : t.admin.deleteUser}
     </button>
+    {error ? <p className="mt-1 max-w-40 text-xs text-red-600">{error}</p> : null}
+    </div>
   );
 }

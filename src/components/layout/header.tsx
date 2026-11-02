@@ -46,13 +46,13 @@ export async function Header() {
             <>
               <Link
                 href="/login"
-                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 sm:px-4 sm:py-2 sm:text-sm"
+                className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[0.98] active:bg-gray-100 sm:px-4 sm:py-2 sm:text-sm"
               >
                 {t.nav.login}
               </Link>
               <Link
                 href="/register"
-                className="rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-gray-800 sm:px-4 sm:py-2 sm:text-sm"
+                className="rounded-lg bg-gray-900 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-gray-800 active:scale-[0.98] active:bg-gray-950 sm:px-4 sm:py-2 sm:text-sm"
               >
                 {t.nav.signup}
               </Link>

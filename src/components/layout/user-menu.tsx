@@ -46,7 +46,7 @@ export function UserMenu({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-sm font-medium text-white hover:bg-gray-700 transition-colors"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-sm font-medium text-white transition-colors hover:bg-gray-700 active:scale-95 active:bg-gray-800"
       >
         {initials}
       </button>
@@ -70,7 +70,7 @@ export function UserMenu({
           </div>
 
           {role === "STUDENT" && (
-            <div className="py-1">
+            <div className="px-1 py-1">
               <MenuLink href="/my/tickets" onClick={() => setOpen(false)} label={t.menu.myTickets} />
               <MenuLink href="/my/events" onClick={() => setOpen(false)} label={t.menu.myEvents} />
               <MenuLink href="/my/settings" onClick={() => setOpen(false)} label={t.menu.settings} />
@@ -78,7 +78,7 @@ export function UserMenu({
           )}
 
           {role === "ORGANIZER" && (
-            <div className="py-1">
+            <div className="px-1 py-1">
               <MenuLink
                 href="/dashboard"
                 onClick={() => setOpen(false)}
@@ -91,7 +91,7 @@ export function UserMenu({
           )}
 
           {role === "ADMIN" && (
-            <div className="py-1">
+            <div className="px-1 py-1">
               <MenuLink
                 href="/admin"
                 onClick={() => setOpen(false)}
@@ -102,7 +102,7 @@ export function UserMenu({
             </div>
           )}
 
-          <div className="border-t border-gray-100 px-4 py-2">
+          <div className="border-t border-gray-100 p-1">
             <SignOutButton />
           </div>
         </div>
@@ -126,7 +126,7 @@ function MenuLink({
     <Link
       href={href}
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-50 ${
+      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 active:bg-gray-100 ${
         highlight ? "font-medium text-gray-900" : "text-gray-700"
       }`}
     >

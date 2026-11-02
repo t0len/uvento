@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/header";
+import { OrgMark } from "@/components/organizations/org-mark";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
@@ -20,7 +21,7 @@ export default async function OrganizationPage({
     include: {
       _count: { select: { members: true } },
       events: {
-        where: { status: "PUBLISHED" },
+        where: { status: "PUBLISHED", endDate: { gte: new Date() } },
         orderBy: { startDate: "asc" },
       },
     },
@@ -36,13 +37,11 @@ export default async function OrganizationPage({
           ← {t.orgs.back}
         </Link>
         <div className="mt-6 flex items-start gap-4">
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-200 text-xs text-gray-400">
-            {org.logoUrl ? (
-              <img src={org.logoUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              "Logo"
-            )}
-          </div>
+          {org.logoUrl ? (
+            <img src={org.logoUrl} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <OrgMark name={org.name} />
+          )}
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{org.name}</h1>
             {org.description && <p className="mt-2 text-sm text-gray-600">{org.description}</p>}

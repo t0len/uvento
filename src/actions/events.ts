@@ -6,12 +6,21 @@ import { canCreateEvent, canEditEvent, canPublishEvent } from "@/lib/permissions
 import { publishGaps, readEventForm } from "@/lib/participation";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
-import { getI18n } from "@/lib/i18n";
+import { getI18n, type Dictionary } from "@/lib/i18n";
+import { errorText } from "@/lib/error-text";
 import { deleteEventImage, saveEventImage } from "@/lib/uploads";
 import { cancelEventWithTickets } from "@/lib/cancel-event";
 import { membershipOrganizations } from "@/lib/organizations";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+
+function explain(t: Dictionary, code: string) {
+  return errorText(t, code);
+}
+
+function explainAll(t: Dictionary, codes: string[]) {
+  return codes.map((code) => errorText(t, code)).join(". ");
+}
 
 async function imageError(code: string) {
   const { t } = await getI18n();
@@ -53,31 +62,32 @@ function eventDates(formData: FormData) {
 
 export async function createEvent(formData: FormData) {
   const user = await requireAuth();
+  const { t } = await getI18n();
   if (!canCreateEvent(user)) {
-    return { error: "Нет прав для создания мероприятия" };
+    return { error: explain(t, "noCreateRights") };
   }
 
   const dates = eventDates(formData);
   const parsed = readEventForm(formData, dates.startDate, dates.endDate);
-  if ("error" in parsed) return { error: parsed.error };
+  if ("error" in parsed) return { error: explain(t, parsed.error) };
   const draft = parsed.data;
   const publishing = formData.get("intent") === "publish";
   if (publishing) {
     const gaps = publishGaps(draft);
-    if (gaps.length > 0) return { error: gaps.join(". ") };
+    if (gaps.length > 0) return { error: explainAll(t, gaps) };
   }
 
   const { title, description, shortDescription, location, venue, startDate, endDate, capacity, price, participationType, categoryIds } = draft;
 
   const memberships = await membershipOrganizations(user.id);
   if (memberships.length === 0) {
-    return { error: "Вы не состоите ни в одной организации" };
+    return { error: explain(t, "noOrganization") };
   }
   const requestedOrg = String(formData.get("organizationId") || "");
   const organizationId =
     memberships.length === 1 ? memberships[0].id : requestedOrg;
   if (!memberships.some((org) => org.id === organizationId)) {
-    return { error: "Выберите организацию" };
+    return { error: explain(t, "chooseOrganization") };
   }
 
   const cover = formData.get("cover");
@@ -124,39 +134,42 @@ export async function createEvent(formData: FormData) {
 
 export async function updateEvent(eventId: string, formData: FormData) {
   const user = await requireAuth();
+  const { t } = await getI18n();
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { organization: { include: { members: { select: { userId: true } } } } },
   });
 
-  if (!event) return { error: "Мероприятие не найдено" };
+  if (!event) return { error: explain(t, "eventNotFound") };
 
   if (!canEditEvent(user, { organizationId: event.organizationId, members: event.organization.members })) {
-    return { error: "Нет прав для редактирования" };
+    return { error: explain(t, "noEditRights") };
   }
 
   const seenAt = String(formData.get("updatedAt") || "");
   if (seenAt && event.updatedAt.toISOString() !== seenAt) {
-    return { error: "Событие уже изменилось. Откройте страницу ещё раз." };
+    return { error: explain(t, "eventChanged") };
   }
 
   const dates = eventDates(formData);
   const parsed = readEventForm(formData, dates.startDate, dates.endDate);
-  if ("error" in parsed) return { error: parsed.error };
+  if ("error" in parsed) return { error: explain(t, parsed.error) };
   const draft = parsed.data;
   if (event.status === "PUBLISHED") {
     const gaps = publishGaps(draft);
-    if (gaps.length > 0) return { error: gaps.join(". ") };
+    if (gaps.length > 0) return { error: explainAll(t, gaps) };
   }
 
   if (draft.capacity != null) {
     await releaseExpiredReservations();
-    const active = await prisma.registration.count({
+    const activeRow = await prisma.registration.aggregate({
       where: { eventId, status: { not: "CANCELLED" } },
+      _sum: { quantity: true },
     });
+    const active = activeRow._sum.quantity ?? 0;
     if (draft.capacity < active) {
-      return { error: "Вместимость меньше числа текущих участников" };
+      return { error: explain(t, "capacityTooSmall") };
     }
   }
 
@@ -207,24 +220,25 @@ export async function updateEvent(eventId: string, formData: FormData) {
 
 export async function publishEvent(eventId: string) {
   const user = await requireAuth();
+  const { t } = await getI18n();
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { organization: { include: { members: { select: { userId: true } } } } },
   });
 
-  if (!event) return { error: "Мероприятие не найдено" };
+  if (!event) return { error: explain(t, "eventNotFound") };
 
   if (!canPublishEvent(user, { organizationId: event.organizationId, members: event.organization.members })) {
-    return { error: "Нет прав для публикации" };
+    return { error: explain(t, "noPublishRights") };
   }
 
   if (event.status !== "DRAFT") {
-    return { error: "Можно опубликовать только черновик" };
+    return { error: explain(t, "onlyDraft") };
   }
 
   const gaps = publishGaps(event);
-  if (gaps.length > 0) return { error: gaps.join(". ") };
+  if (gaps.length > 0) return { error: explainAll(t, gaps) };
 
   await prisma.event.update({
     where: { id: eventId },
@@ -237,16 +251,17 @@ export async function publishEvent(eventId: string) {
 
 export async function cancelEvent(eventId: string) {
   const user = await requireAuth();
+  const { t } = await getI18n();
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { organization: { include: { members: { select: { userId: true } } } } },
   });
 
-  if (!event) return { error: "Мероприятие не найдено" };
+  if (!event) return { error: explain(t, "eventNotFound") };
 
   if (!canEditEvent(user, { organizationId: event.organizationId, members: event.organization.members })) {
-    return { error: "Нет прав" };
+    return { error: explain(t, "noRights") };
   }
 
   await cancelEventWithTickets(eventId);
@@ -259,23 +274,24 @@ export async function cancelEvent(eventId: string) {
 
 export async function deleteEvent(eventId: string) {
   const user = await requireAuth();
+  const { t } = await getI18n();
 
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     include: { organization: { include: { members: { select: { userId: true } } } } },
   });
 
-  if (!event) return { error: "Мероприятие не найдено" };
+  if (!event) return { error: explain(t, "eventNotFound") };
 
   if (!canEditEvent(user, { organizationId: event.organizationId, members: event.organization.members })) {
-    return { error: "Нет прав для удаления" };
+    return { error: explain(t, "noDeleteRights") };
   }
 
   const active = await prisma.registration.count({
     where: { eventId, status: { not: "CANCELLED" } },
   });
   if (active > 0) {
-    return { error: "Нельзя удалить событие, пока на него есть участники" };
+    return { error: explain(t, "hasParticipants") };
   }
 
   await prisma.event.delete({ where: { id: eventId } });

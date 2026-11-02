@@ -4,22 +4,22 @@ const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .pipe(z.email("Введите корректный email"));
+  .pipe(z.email("email"));
 
 export const loginSchema = z.object({
   email: emailSchema,
-  password: z.string().min(1, "Введите пароль"),
+  password: z.string().min(1, "password"),
 });
 
 export const registerSchema = z
   .object({
-    name: z.string().min(2, "Имя должно быть минимум 2 символа"),
+    name: z.string().min(2, "nameShort"),
     email: emailSchema,
-    password: z.string().min(8, "Пароль минимум 8 символов"),
+    password: z.string().min(8, "passwordShort"),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
-    message: "Пароли не совпадают",
+    message: "passwordMismatch",
     path: ["confirmPassword"],
   });
 
