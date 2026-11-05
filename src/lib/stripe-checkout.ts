@@ -109,7 +109,7 @@ export async function createCheckoutUrl(registrationId: string, userId: string) 
       },
     ],
     success_url: `${origin}/my/tickets?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${origin}/events/${registration.event.slug}?payment=cancelled`,
+    cancel_url: `${origin}/events/${encodeURIComponent(registration.event.slug)}?payment=cancelled`,
     expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_MINUTES * 60,
   });
 
