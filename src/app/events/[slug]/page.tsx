@@ -13,10 +13,13 @@ import { RegisterButton } from "./register-button";
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ payment?: string }>;
 }) {
   const { slug: rawSlug } = await params;
+  const { payment } = await searchParams;
   const slug = decodeURIComponent(rawSlug);
   const { locale, t } = await getI18n();
   await releaseExpiredReservations();
@@ -118,6 +121,9 @@ export default async function EventDetailPage({
 
         <section className="mt-8 max-w-3xl">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">{t.eventDetail.ticketType}</h2>
+          {payment === "cancelled" && activeRegistration?.status === "PENDING" ? (
+            <p className="mb-3 text-sm text-gray-600">{t.myTickets.paymentCancelled}</p>
+          ) : null}
           <RegisterButton
             eventId={event.id}
             price={event.price}

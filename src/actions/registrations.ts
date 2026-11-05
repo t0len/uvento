@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { releaseExpiredReservations, reservationDeadline } from "@/lib/reservations";
+import { createCheckoutUrl } from "@/lib/stripe-checkout";
 import { ticketQuantity } from "@/lib/tickets";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
@@ -197,73 +198,18 @@ export async function confirmPayment(registrationId: string) {
   return { success: true };
 }
 
-function mockCardError(formData: FormData) {
-  const card = String(formData.get("card") || "").replace(/\s/g, "");
-  const expiry = String(formData.get("expiry") || "").trim();
-  const cvv = String(formData.get("cvv") || "").trim();
-  const holder = String(formData.get("holder") || "").trim();
-  if (!/^\d{16}$/.test(card)) return "cardDigits";
-  const match = expiry.match(/^(\d{2})\/(\d{2})$/);
-  if (!match) return "expiryFormat";
-  const month = Number(match[1]);
-  const year = 2000 + Number(match[2]);
-  if (month < 1 || month > 12) return "badMonth";
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Almaty",
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(new Date());
-  const currentYear = Number(parts.find((part) => part.type === "year")?.value);
-  const currentMonth = Number(parts.find((part) => part.type === "month")?.value);
-  if (year * 12 + month < currentYear * 12 + currentMonth) return "cardExpired";
-  if (!/^\d{3}$/.test(cvv)) return "cvvDigits";
-  if (holder.length < 2) return "cardName";
-  return null;
-}
-
-export async function completeMockPayment(registrationId: string, formData: FormData) {
+export async function startStripeCheckout(
+  registrationId: string,
+): Promise<{ error: string } | { url: string }> {
   const user = await requireAuth();
-  const invalid = mockCardError(formData);
-  if (invalid) return { error: await say(invalid) };
-
-  const registration = await prisma.registration.findUnique({
-    where: { id: registrationId },
-    include: { payment: true, event: true },
-  });
-  if (!registration || registration.userId !== user.id) {
-    return { error: await say("noActiveHold") };
+  if (!user.id) return { error: await say("noActiveHold") };
+  try {
+    const result = await createCheckoutUrl(registrationId, user.id);
+    if ("error" in result && result.error) return { error: await say(result.error) };
+    if ("url" in result && result.url) return { url: result.url };
+    return { error: await say("stripeCheckoutFailed") };
+  } catch (error) {
+    console.error("stripe checkout", error instanceof Error ? error.message : error);
+    return { error: await say("stripeCheckoutFailed") };
   }
-  if (registration.payment?.status === "COMPLETED" || registration.status === "CONFIRMED" || registration.status === "CHECKED_IN") {
-    return { error: await say("paymentRecorded") };
-  }
-  if (registration.status !== "PENDING" || !registration.payment) {
-    return { error: await say("noActiveHold") };
-  }
-  if (!registration.reservedUntil || registration.reservedUntil < new Date()) {
-    await releaseExpiredReservations(prisma, registration.eventId);
-    return { error: await say("reservationExpired") };
-  }
-
-  await prisma.$transaction([
-    prisma.registration.update({
-      where: { id: registration.id },
-      data: { status: "CONFIRMED", reservedUntil: null },
-    }),
-    prisma.payment.update({
-      where: { id: registration.payment.id },
-      data: {
-        status: "COMPLETED",
-        paidAt: new Date(),
-        method: "mock",
-        amount: registration.event.price * registration.quantity,
-      },
-    }),
-  ]);
-
-  revalidatePath(`/events/${registration.event.slug}`);
-  revalidatePath("/my/tickets");
-  revalidatePath("/my/events");
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/registrations");
-  return { success: true as const };
 }

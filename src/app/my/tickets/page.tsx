@@ -1,13 +1,25 @@
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
+import { errorText } from "@/lib/error-text";
 import { countTickets, formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
+import { fulfillCheckoutSession } from "@/lib/stripe-checkout";
 import { TicketList, type TicketItem } from "./ticket-list";
 
-export default async function MyTicketsPage() {
+export default async function MyTicketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string }>;
+}) {
   const user = await requireAuth();
   const { locale, t } = await getI18n();
+  const { session_id: sessionId } = await searchParams;
+  let paymentNotice: string | null = null;
+  if (sessionId) {
+    const result = await fulfillCheckoutSession(sessionId, user.id);
+    if ("error" in result && result.error) paymentNotice = errorText(t, result.error);
+  }
   await releaseExpiredReservations();
 
   const registrations = await prisma.registration.findMany({
@@ -56,6 +68,7 @@ export default async function MyTicketsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">{t.myTickets.title}</h1>
+      {paymentNotice ? <p className="mt-4 text-sm text-red-600">{paymentNotice}</p> : null}
       <p className="mt-1 text-sm text-gray-500">
         {tickets.length === 0
           ? t.myTickets.subtitle

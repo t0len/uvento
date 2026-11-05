@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets } from "@/lib/format";
 import { QRTicket } from "./qr-ticket";
-import { MockPayForm } from "@/app/events/[slug]/mock-pay-form";
+import { StripePayButton } from "@/app/events/[slug]/stripe-pay-button";
 
 export type TicketItem = {
   id: string;
@@ -89,7 +89,7 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                       </p>
                     )}
                     {ticket.status === "PENDING" ? (
-                      <MockPayForm registrationId={ticket.id} reservedUntil={ticket.reservedUntil} />
+                      <StripePayButton registrationId={ticket.id} reservedUntil={ticket.reservedUntil} />
                     ) : null}
                   </div>
                 </div>

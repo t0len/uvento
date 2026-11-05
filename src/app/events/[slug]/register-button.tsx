@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
 import { MAX_TICKETS_PER_ORDER } from "@/lib/tickets";
-import { MockPayForm } from "./mock-pay-form";
+import { StripePayButton } from "./stripe-pay-button";
 
 export function RegisterButton({
   eventId,
@@ -174,11 +174,7 @@ export function RegisterButton({
       {ticketRow}
       {action}
       {status === "PENDING" && currentRegistrationId ? (
-        <MockPayForm
-          registrationId={currentRegistrationId}
-          reservedUntil={heldUntil}
-          onPaid={() => setStatus("CONFIRMED")}
-        />
+        <StripePayButton registrationId={currentRegistrationId} reservedUntil={heldUntil} />
       ) : null}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
