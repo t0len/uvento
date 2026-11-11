@@ -1,35 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import { register } from "@/actions/auth";
 import Link from "next/link";
 import { useI18n, LanguageSwitcher } from "@/components/i18n/i18n-provider";
 
 export default function RegisterPage() {
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const { t } = useI18n();
-
-  async function handleSubmit(formData: FormData) {
-    setLoading(true);
-    setError(null);
+  const [error, submit, pending] = useActionState(async (_previous: string | null, formData: FormData) => {
     try {
       const result = await register(formData);
-      if (result?.error) {
-        setError(result.error);
-        setLoading(false);
-      }
+      return result?.error ?? null;
     } catch (error) {
       const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
       if (digest.startsWith("NEXT_REDIRECT")) throw error;
-      setError(t.auth.createFailed);
-      setLoading(false);
+      return t.auth.createFailed;
     }
-  }
+  }, null);
 
   return (
     <div className="relative rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
-      {loading && (
+      {pending && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/90">
           <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
           <p className="text-sm font-medium text-gray-900">{t.auth.creating}</p>
@@ -43,7 +34,7 @@ export default function RegisterPage() {
         <p className="mt-1 text-sm text-gray-500">{t.auth.registerSubtitle}</p>
       </div>
 
-      <form action={handleSubmit} className="space-y-4">
+      <form action={submit} className="space-y-4">
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             {t.auth.name}
@@ -97,16 +88,20 @@ export default function RegisterPage() {
           />
         </div>
 
-        {error && (
+        {error && !pending ? (
           <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">{error}</div>
-        )}
+        ) : null}
 
         <button
           type="submit"
-          disabled={loading}
-          className="w-full rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:opacity-50"
+          disabled={pending}
+          aria-busy={pending}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-90"
         >
-          {loading ? t.auth.creating : t.auth.createAccount}
+          {pending ? (
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          ) : null}
+          {pending ? t.auth.creating : t.auth.createAccount}
         </button>
       </form>
 
