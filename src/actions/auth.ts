@@ -8,6 +8,7 @@ import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { AuthError } from "next-auth";
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 async function say(code: string) {
   const { t } = await getI18n();
@@ -46,7 +47,7 @@ export async function register(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: "/my",
+      redirect: false,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -54,6 +55,8 @@ export async function register(formData: FormData) {
     }
     throw error;
   }
+
+  redirect("/my");
 }
 
 export async function login(formData: FormData) {
@@ -90,7 +93,7 @@ export async function login(formData: FormData) {
     await signIn("credentials", {
       email,
       password,
-      redirectTo: homePathForRole(user.role),
+      redirect: false,
     });
   } catch (error) {
     if (error instanceof AuthError) {
@@ -98,6 +101,8 @@ export async function login(formData: FormData) {
     }
     throw error;
   }
+
+  redirect(homePathForRole(user.role));
 }
 
 export async function updateName(

@@ -25,19 +25,23 @@ export default async function MyEventsPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const empty = registrations.length === 0;
+
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    <div className={`mx-auto flex w-full max-w-4xl flex-col px-4 pt-8 ${empty ? "flex-1 pb-6" : "pb-8"}`}>
       <h1 className="text-2xl font-bold text-gray-900">{t.my.events}</h1>
       <p className="mt-1 text-sm text-gray-500">{t.my.eventsSub}</p>
 
-      {registrations.length === 0 ? (
-        <div className="mt-12 text-center">
-          <p className="text-gray-500">{t.my.noEvents}</p>
+      {empty ? (
+        <div className="flex flex-1 flex-col items-center">
+          <p className="my-auto text-center text-3xl font-medium text-gray-800">
+            {t.my.noEvents}
+          </p>
           <Link
             href="/events"
-            className="mt-4 inline-flex rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+            className="inline-flex rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
           >
-            {t.home.browseEvents}
+            {t.my.registerForEvent}
           </Link>
         </div>
       ) : (

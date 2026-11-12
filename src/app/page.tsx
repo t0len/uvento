@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { auth, homePathForRole } from "@/lib/auth";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
@@ -8,6 +10,12 @@ import { categoryLabel } from "@/lib/categories";
 import { Header } from "@/components/layout/header";
 
 export default async function HomePage() {
+  const session = await auth();
+  const role = session?.user?.role;
+  if (role === "ORGANIZER" || role === "ADMIN") {
+    redirect(homePathForRole(role));
+  }
+
   const { locale, t } = await getI18n();
   await releaseExpiredReservations();
 

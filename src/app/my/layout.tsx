@@ -10,7 +10,7 @@ export default async function MyLayout({
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>
   );
 }
