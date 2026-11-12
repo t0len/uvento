@@ -34,11 +34,14 @@ export default async function DashboardPage() {
         })
       : null,
     hasOrgs
-      ? prisma.registration.aggregate({
-          where: { event: orgEvent, status: "CHECKED_IN" },
-          _sum: { quantity: true },
+      ? prisma.ticket.findMany({
+          where: {
+            checkedInAt: { not: null },
+            registration: { status: { in: ["CONFIRMED", "CHECKED_IN"] }, event: orgEvent },
+          },
+          select: { registration: { select: { eventId: true } } },
         })
-      : null,
+      : [],
     hasOrgs
       ? prisma.payment.aggregate({
           where: {
@@ -76,7 +79,7 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.title}</h1>
+  const checkedIn = [...attendedByEvent.values()].reduce((sum, count) => sum + count, 0);
           <p className="mt-1 text-sm text-gray-500">{t.dashboard.managePerformance}</p>
         </div>
         <Link

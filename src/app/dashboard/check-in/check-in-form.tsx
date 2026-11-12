@@ -3,17 +3,16 @@
 import { useState, useTransition } from "react";
 import { checkIn } from "@/actions/checkin";
 import { useI18n } from "@/components/i18n/i18n-provider";
-import { countTickets } from "@/lib/format";
 import { QrScanner } from "./qr-scanner";
 
 type CheckInResult = {
   success?: boolean;
   error?: string;
-  attendee?: { name: string; email: string; event: string; quantity?: number };
+  attendee?: { name: string; email: string; event: string; seatLabel?: string | null };
 };
 
 export function CheckInForm({ events }: { events: { id: string; label: string }[] }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [eventId, setEventId] = useState(events[0]?.id ?? "");
   const [ticketCode, setTicketCode] = useState("");
   const [isPending, startTransition] = useTransition();
@@ -82,8 +81,8 @@ export function CheckInForm({ events }: { events: { id: string; label: string }[
                 {result.attendee.name} — {result.attendee.event}
               </p>
               <p className="text-xs text-green-600">{result.attendee.email}</p>
-              {result.attendee.quantity && result.attendee.quantity > 1 ? (
-                <p className="text-sm text-green-700">{countTickets(result.attendee.quantity, locale)}</p>
+              {result.attendee.seatLabel ? (
+                <p className="text-sm text-green-700">{result.attendee.seatLabel}</p>
               ) : null}
             </div>
           </div>

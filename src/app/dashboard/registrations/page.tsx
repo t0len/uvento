@@ -41,6 +41,7 @@ export default async function DashboardRegistrationsPage({
           user: { select: { name: true, email: true } },
           event: { select: { title: true, slug: true, price: true } },
           payment: { select: { status: true, amount: true } },
+          tickets: { select: { checkedInAt: true } },
         },
         orderBy: { createdAt: "desc" },
       })
@@ -176,7 +177,12 @@ export default async function DashboardRegistrationsPage({
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">
-                    {reg.status === "CHECKED_IN" ? t.dashboard.attended : t.dashboard.notAttended}
+                    {(() => {
+                      const arrived = reg.tickets.filter((ticket) => ticket.checkedInAt).length;
+                      if (arrived === 0) return reg.status === "CHECKED_IN" ? t.dashboard.attended : t.dashboard.notAttended;
+                      if (arrived >= reg.quantity) return t.dashboard.attended;
+                      return `${arrived}/${reg.quantity}`;
+                    })()}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">

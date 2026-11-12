@@ -53,12 +53,6 @@ export default async function DashboardLayout({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <LanguageSwitcher compact />
-            <Link
-              href="/events"
-              className="hidden text-sm text-gray-500 hover:text-gray-800 lg:inline"
-            >
-              {t.nav.publicSite}
-            </Link>
             <UserMenu name={user.name || t.common.user} email={user.email} role={user.role} />
           </div>
         </div>

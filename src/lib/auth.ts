@@ -54,7 +54,8 @@ export async function currentUser(): Promise<AuthUser | null> {
     where: { id: session.user.id },
     select: { id: true, email: true, name: true, role: true, blocked: true },
   });
-  if (!row || row.blocked) {
+  if (!row) return null;
+  if (row.blocked) {
     await signOut({ redirectTo: "/login" });
     redirect("/login");
   }

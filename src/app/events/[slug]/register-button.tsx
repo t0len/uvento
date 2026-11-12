@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { registerForEvent, cancelRegistration } from "@/actions/registrations";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
 import { MAX_TICKETS_PER_ORDER } from "@/lib/tickets";
-import { StripePayButton } from "./stripe-pay-button";
 
 export function RegisterButton({
   eventId,
@@ -20,7 +20,7 @@ export function RegisterButton({
   spotsLeft,
   existingQuantity,
   participationType,
-  reservedUntil,
+  slug,
 }: {
   eventId: string;
   price: number;
@@ -33,13 +33,13 @@ export function RegisterButton({
   spotsLeft: number | null;
   existingQuantity: number;
   participationType: "OPEN" | "FREE" | "PAID";
-  reservedUntil: string | null;
+  slug: string;
 }) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState(existingStatus);
   const [currentRegistrationId, setCurrentRegistrationId] = useState(registrationId);
-  const [heldUntil, setHeldUntil] = useState(reservedUntil);
   const { locale, t } = useI18n();
   const booked =
     status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
@@ -157,7 +157,7 @@ export function RegisterButton({
             else if (res?.success) {
               setStatus(res.status);
               setCurrentRegistrationId(res.registrationId);
-              setHeldUntil(res.reservedUntil);
+              if (res.status === "PENDING") router.push(`/events/${slug}/pay`);
             }
           });
         }}
@@ -174,7 +174,12 @@ export function RegisterButton({
       {ticketRow}
       {action}
       {status === "PENDING" && currentRegistrationId ? (
-        <StripePayButton registrationId={currentRegistrationId} reservedUntil={heldUntil} />
+        <Link
+          href={`/events/${slug}/pay`}
+          className="mt-4 inline-flex text-sm font-medium text-gray-900 underline"
+        >
+          {t.myTickets.paySubmit}
+        </Link>
       ) : null}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>

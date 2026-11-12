@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { releaseExpiredReservations, reservationDeadline } from "@/lib/reservations";
 import { createCheckoutUrl } from "@/lib/stripe-checkout";
-import { ticketQuantity } from "@/lib/tickets";
+import { syncTicketPasses, ticketQuantity } from "@/lib/tickets";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { revalidatePath } from "next/cache";
@@ -56,20 +56,22 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
       const status = paid ? "PENDING" : "CONFIRMED";
       const reservedUntil = paid ? reservationDeadline() : null;
       const amount = event.price * quantity;
-      let registrationId: string;
-
-      if (existing) {
-        await tx.registration.update({
-          where: { id: existing.id },
-          data: { status, reservedUntil, quantity },
-        });
-        registrationId = existing.id;
-      } else {
-        const registration = await tx.registration.create({
-          data: { userId: user.id, eventId, status, reservedUntil, quantity },
-        });
-        registrationId = registration.id;
-      }
+      const saved = existing
+        ? await tx.registration.update({
+            where: { id: existing.id },
+            data: { status, reservedUntil, quantity },
+          })
+        : await tx.registration.create({
+            data: { userId: user.id, eventId, status, reservedUntil, quantity },
+          });
+      const registrationId = saved.id;
+      await syncTicketPasses(tx, {
+        id: saved.id,
+        ticketCode: saved.ticketCode,
+        quantity: saved.quantity,
+        status: saved.status,
+        checkedInAt: saved.checkedInAt,
+      });
 
       if (paid) {
         const payment = await tx.payment.findUnique({ where: { registrationId } });

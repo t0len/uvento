@@ -5,6 +5,7 @@ import { errorText } from "@/lib/error-text";
 import { countTickets, formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { fulfillCheckoutSession } from "@/lib/stripe-checkout";
+import { syncTicketPasses } from "@/lib/tickets";
 import { TicketList, type TicketItem } from "./ticket-list";
 
 export default async function MyTicketsPage({
@@ -40,14 +41,20 @@ export default async function MyTicketsPage({
   });
 
   const now = new Date();
-  const tickets: TicketItem[] = registrations.map((registration) => {
+  const passLists = await Promise.all(
+    registrations.map((registration) =>
+      registration.status === "CONFIRMED" || registration.status === "CHECKED_IN"
+        ? syncTicketPasses(prisma, registration)
+        : Promise.resolve([]),
+    ),
+  );
+  const tickets: TicketItem[] = registrations.map((registration, index) => {
     const statusLabel =
       registration.status === "PENDING"
         ? t.events.pendingPayment
         : t.status[registration.status as keyof typeof t.status] || registration.status;
     return {
       id: registration.id,
-      ticketCode: registration.ticketCode,
       status: registration.status,
       statusLabel,
       title: registration.event.title,
@@ -60,8 +67,12 @@ export default async function MyTicketsPage({
       }),
       place: [registration.event.venue, registration.event.location].filter(Boolean).join(" · "),
       upcoming: registration.event.endDate ? registration.event.endDate >= now : true,
-      reservedUntil: registration.reservedUntil?.toISOString() ?? null,
       quantity: registration.quantity,
+      passes: passLists[index].map((pass) => ({
+        code: pass.code,
+        position: pass.position,
+        checkedInAt: pass.checkedInAt?.toISOString() ?? null,
+      })),
     };
   });
 

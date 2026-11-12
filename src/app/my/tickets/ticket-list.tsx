@@ -3,13 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
-import { countTickets } from "@/lib/format";
 import { QRTicket } from "./qr-ticket";
-import { StripePayButton } from "@/app/events/[slug]/stripe-pay-button";
+
+export type TicketPass = {
+  code: string;
+  position: number;
+  checkedInAt: string | null;
+};
 
 export type TicketItem = {
   id: string;
-  ticketCode: string;
   status: string;
   statusLabel: string;
   title: string;
@@ -17,14 +20,17 @@ export type TicketItem = {
   when: string;
   place: string;
   upcoming: boolean;
-  reservedUntil: string | null;
   quantity: number;
+  passes: TicketPass[];
 };
 
+function fill(template: string, values: Record<string, string>) {
+  return Object.entries(values).reduce((text, [key, value]) => text.replaceAll(`{${key}}`, value), template);
+}
+
 export function TicketList({ tickets }: { tickets: TicketItem[] }) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
-  const [openId, setOpenId] = useState<string | null>(null);
   const visible = tickets.filter((ticket) => (tab === "upcoming" ? ticket.upcoming : !ticket.upcoming));
 
   return (
@@ -55,56 +61,52 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
       ) : (
         <div className={`mt-6 space-y-4 ${tab === "past" ? "opacity-70" : ""}`}>
           {visible.map((ticket) => {
-            const open = openId === ticket.id;
             const showQr = ticket.status === "CONFIRMED" || ticket.status === "CHECKED_IN";
             return (
               <article key={ticket.id} className="rounded-xl border border-gray-200 bg-white p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                  {showQr ? (
-                    <QRTicket ticketCode={ticket.ticketCode} eventTitle={ticket.title} hint={t.myTickets.showAtEntrance} />
-                  ) : (
-                    <div className="flex aspect-square w-full max-w-[240px] items-center justify-center rounded-lg bg-gray-100 px-4 text-center text-xs text-gray-500">
-                      {t.myTickets.pendingNoQr}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <Link href={`/events/${ticket.slug}`} className="font-semibold text-gray-900 hover:underline">
-                        {ticket.title}
-                      </Link>
-                      <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
-                        {ticket.statusLabel}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-gray-500">{ticket.when}</p>
-                    <p className="text-sm text-gray-500">{ticket.place}</p>
-                    {ticket.quantity > 1 ? (
-                      <p className="mt-1 text-sm text-gray-700">
-                        {countTickets(ticket.quantity, locale)}
-                      </p>
-                    ) : null}
-                    {open && showQr && (
-                      <p className="mt-3 text-xs text-gray-500">
-                        {t.my.ticketCode}: {ticket.ticketCode}
-                      </p>
-                    )}
-                    {ticket.status === "PENDING" ? (
-                      <StripePayButton registrationId={ticket.id} reservedUntil={ticket.reservedUntil} />
-                    ) : null}
-                  </div>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <Link href={`/events/${ticket.slug}`} className="font-semibold text-gray-900 hover:underline">
+                    {ticket.title}
+                  </Link>
+                  <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700">
+                    {ticket.statusLabel}
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOpenId(open ? null : ticket.id)}
-                  className="mt-4 w-full rounded-lg bg-gray-100 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                >
-                  {open ? t.myTickets.hideTicket : t.myTickets.showTicket}
-                </button>
-              </article>
-            );
-          })}
-        </div>
-      )}
+                <p className="mt-1 text-sm text-gray-500">{ticket.when}</p>
+                <p className="text-sm text-gray-500">{ticket.place}</p>
+                {ticket.status === "PENDING" ? (
+                  <Link
+                    href={`/events/${ticket.slug}/pay`}
+                    className="mt-4 inline-flex text-sm font-medium text-gray-900 underline"
+                  >
+                    {t.myTickets.paySubmit}
+                  </Link>
+                ) : null}
+                {showQr ? (
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {ticket.passes.map((pass) => (
+                      <div key={pass.code} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+                        <QRTicket
+                          ticketCode={pass.code}
+                          eventTitle={ticket.title}
+                          hint={fill(t.myTickets.ticketNumber, {
+                            n: String(pass.position),
+                            total: String(ticket.quantity),
+                          })}
+                          caption={t.myTickets.showAtEntrance}
+                          shareLabel={t.myTickets.share}
+                          fileName={`${ticket.slug}-ticket-${pass.position}.png`}
+                          used={Boolean(pass.checkedInAt)}
+                          usedLabel={t.myTickets.used}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-4 flex min-h-24 items-center justify-center rounded-lg bg-gray-100 px-4 text-center text-sm text-gray-500">
+                    {t.myTickets.pendingNoQr}
+                  </div>
+                )}
     </div>
   );
 }

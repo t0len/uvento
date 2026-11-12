@@ -154,10 +154,25 @@ model Registration {
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   payment Payment?
+  tickets Ticket[]
 
   @@unique([userId, eventId])
   @@index([eventId, status])
   @@map("registrations")
+}
+
+model Ticket {
+  id             String    @id @default(cuid())
+  registrationId String
+  code           String    @unique @default(cuid())
+  position       Int
+  checkedInAt    DateTime?
+
+  registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  @@unique([registrationId, position])
+  @@index([code])
+  @@map("tickets")
 }
 
 model Payment {
