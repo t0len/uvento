@@ -61,25 +61,31 @@ export default async function DashboardPage() {
         })
       : [],
     hasOrgs
-      ? prisma.registration.groupBy({
-          by: ["eventId"],
-          where: { status: "CHECKED_IN", event: orgEvent },
-          _sum: { quantity: true },
+      ? prisma.registration.findMany({
+          where: { status: "CHECKED_IN", event: orgEvent, tickets: { none: {} } },
+          select: { eventId: true, quantity: true },
         })
       : [],
   ]);
-  const attendedByEvent = new Map(attendedRows.map((row) => [row.eventId, row._sum.quantity ?? 0]));
+  const attendedByEvent = new Map<string, number>();
+  for (const row of checkedInAgg) {
+    const eventId = row.registration.eventId;
+    attendedByEvent.set(eventId, (attendedByEvent.get(eventId) ?? 0) + 1);
+  }
+  for (const row of attendedRows) {
+    attendedByEvent.set(row.eventId, (attendedByEvent.get(row.eventId) ?? 0) + row.quantity);
+  }
   const seats = await occupiedSeatsByEvent(events.map((event) => event.id));
 
   const revenue = revenueAgg?._sum.amount ?? 0;
   const ticketsSold = ticketsSoldAgg?._sum.quantity ?? 0;
-  const checkedIn = checkedInAgg?._sum.quantity ?? 0;
+  const checkedIn = [...attendedByEvent.values()].reduce((sum, count) => sum + count, 0);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-  const checkedIn = [...attendedByEvent.values()].reduce((sum, count) => sum + count, 0);
+          <h1 className="text-2xl font-bold text-gray-900">{t.dashboard.title}</h1>
           <p className="mt-1 text-sm text-gray-500">{t.dashboard.managePerformance}</p>
         </div>
         <Link

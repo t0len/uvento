@@ -63,7 +63,6 @@ export default async function AdminLayout({
             { href: "/admin/users", label: t.admin.users },
             { href: "/admin/organizations", label: t.admin.organizations },
             { href: "/admin/events", label: t.admin.events },
-            { href: "/events", label: t.nav.publicSite },
           ]}
         />
       </header>

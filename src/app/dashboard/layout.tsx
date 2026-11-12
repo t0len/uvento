@@ -63,7 +63,6 @@ export default async function DashboardLayout({
             { href: "/dashboard/events", label: t.dashboard.events },
             { href: "/dashboard/registrations", label: t.dashboard.registrations },
             { href: "/dashboard/check-in", label: t.dashboard.checkIn },
-            { href: "/events", label: t.nav.publicSite },
           ]}
         />
       </header>

@@ -107,6 +107,11 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                     {t.myTickets.pendingNoQr}
                   </div>
                 )}
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
