@@ -33,9 +33,9 @@ export function registrationWhere(organizationIds: string[], filters: Registrati
   }
 
   if (filters.payment === "NONE") {
-    where.payment = { is: null };
+    where.payments = { none: {} };
   } else if (filters.payment && PAYMENTS.includes(filters.payment as PaymentStatus)) {
-    where.payment = { is: { status: filters.payment as PaymentStatus } };
+    where.payments = { some: { status: filters.payment as PaymentStatus } };
   }
 
   return where;

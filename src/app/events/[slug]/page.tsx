@@ -36,6 +36,7 @@ export default async function EventDetailPage({
   if (session?.user) {
     userRegistration = await prisma.registration.findUnique({
       where: { userId_eventId: { userId: session.user.id!, eventId: event.id } },
+      include: { payments: { select: { status: true, reservedUntil: true } } },
     });
   }
 
@@ -131,6 +132,10 @@ export default async function EventDetailPage({
             existingQuantity={activeRegistration?.quantity ?? 1}
             participationType={event.participationType}
             slug={event.slug}
+            hasPendingPayment={
+              activeRegistration?.status === "PENDING" ||
+              Boolean(activeRegistration?.payments.some((payment) => payment.status === "PENDING"))
+            }
           />
         </section>
       </main>

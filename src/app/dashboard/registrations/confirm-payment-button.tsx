@@ -1,11 +1,13 @@
 "use client";
 
 import { useTransition, useState } from "react";
+import { useRouter } from "next/navigation";
 import { confirmPayment } from "@/actions/registrations";
 import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function ConfirmPaymentButton({ registrationId }: { registrationId: string }) {
   const { t } = useI18n();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -21,7 +23,10 @@ export function ConfirmPaymentButton({ registrationId }: { registrationId: strin
           startTransition(async () => {
             const res = await confirmPayment(registrationId);
             if (res?.error) setError(res.error);
-            if (res?.success) setDone(true);
+            if (res?.success) {
+              setDone(true);
+              router.refresh();
+            }
           });
         }}
         disabled={isPending}

@@ -24,22 +24,30 @@ export default async function PayPage({
 
   const registration = await prisma.registration.findUnique({
     where: { userId_eventId: { userId: user.id, eventId: event.id } },
+    include: { payments: { orderBy: { createdAt: "desc" } } },
   });
-  if (
-    !registration ||
-    registration.status !== "PENDING" ||
-    !registration.reservedUntil ||
-    registration.reservedUntil < new Date()
-  ) {
+  const now = new Date();
+  const pendingPayment = registration?.payments.find(
+    (item) => item.status === "PENDING" && (!item.reservedUntil || item.reservedUntil >= now),
+  );
+  const addon = registration?.status === "CONFIRMED" || registration?.status === "CHECKED_IN";
+  const initialHold =
+    registration?.status === "PENDING" &&
+    registration.reservedUntil &&
+    registration.reservedUntil >= now;
+  if (!registration || !pendingPayment || (!addon && !initialHold)) {
     redirect(`/events/${event.slug}`);
   }
+
+  const reservedUntil = (addon ? pendingPayment.reservedUntil : registration.reservedUntil) ?? pendingPayment.reservedUntil;
 
   return (
     <div className="flex min-h-screen flex-col bg-gray-50">
       <Header />
       <PayScreen
         registrationId={registration.id}
-        reservedUntil={registration.reservedUntil?.toISOString() ?? null}
+        paymentId={pendingPayment.id}
+        reservedUntil={reservedUntil?.toISOString() ?? null}
         cancelled={payment === "cancelled"}
       />
     </div>

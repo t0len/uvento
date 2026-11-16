@@ -153,7 +153,7 @@ model Registration {
 
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   event   Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  payment Payment?
+  payments Payment[]
   tickets Ticket[]
 
   @@unique([userId, eventId])
@@ -177,19 +177,22 @@ model Ticket {
 
 model Payment {
   id             String        @id @default(cuid())
-  registrationId String        @unique
+  registrationId String
   userId         String
   amount         Int
+  quantity       Int           @default(1)
   status         PaymentStatus @default(PENDING)
   method         String?
   externalId     String?
   paidAt         DateTime?
+  reservedUntil  DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([registrationId])
   @@index([status])
   @@map("payments")
 }

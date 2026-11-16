@@ -66,7 +66,7 @@ export async function checkIn(ticketCode: string, eventId: string) {
   const whenOf = (at: Date | null) =>
     at ? ` (${formatEventDate(at, localeDate[locale])} ${formatEventTime(at, localeDate[locale])})` : "";
 
-  if (pass.checkedInAt || registration.status === "CHECKED_IN") {
+  if (pass.checkedInAt) {
     return {
       error: tReplace(t.errors.alreadyCheckedIn, {
         name: registration.user.name,

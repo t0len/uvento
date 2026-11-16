@@ -1,22 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useTransition } from "react";
 import { login } from "@/actions/auth";
 import Link from "next/link";
 import { useI18n, LanguageSwitcher } from "@/components/i18n/i18n-provider";
 
+function isRedirect(error: unknown) {
+  const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
+  return digest.startsWith("NEXT_REDIRECT");
+}
+
 export default function LoginPage() {
   const { t } = useI18n();
-  const [error, submit, pending] = useActionState(async (_previous: string | null, formData: FormData) => {
-    try {
-      const result = await login(formData);
-      return result?.error ?? null;
-    } catch (error) {
-      const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
-      if (digest.startsWith("NEXT_REDIRECT")) throw error;
-      return t.auth.failed;
-    }
-  }, null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   return (
     <div className="relative rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -34,7 +31,23 @@ export default function LoginPage() {
         <p className="mt-1 text-sm text-gray-500">{t.auth.loginSubtitle}</p>
       </div>
 
-      <form action={submit} className="space-y-4">
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const formData = new FormData(event.currentTarget);
+          setError(null);
+          startTransition(async () => {
+            try {
+              const result = await login(formData);
+              if (result?.error) setError(result.error);
+            } catch (error) {
+              if (isRedirect(error)) throw error;
+              setError(t.auth.failed);
+            }
+          });
+        }}
+      >
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
             {t.auth.email}

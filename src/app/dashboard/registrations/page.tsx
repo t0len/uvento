@@ -6,8 +6,9 @@ import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
+import { displayPayment } from "@/lib/payments";
 import { ConfirmPaymentButton } from "./confirm-payment-button";
-import { RemoveParticipantButton } from "./remove-participant-button";
+import { RemoveParticipantButton, RestoreParticipantButton } from "./remove-participant-button";
 
 const STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "CANCELLED"] as const;
 
@@ -40,7 +41,7 @@ export default async function DashboardRegistrationsPage({
         include: {
           user: { select: { name: true, email: true } },
           event: { select: { title: true, slug: true, price: true } },
-          payment: { select: { status: true, amount: true } },
+          payments: { select: { status: true, amount: true, createdAt: true } },
           tickets: { select: { checkedInAt: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -165,15 +166,17 @@ export default async function DashboardRegistrationsPage({
                     <span
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${statusColors[reg.status] || "bg-gray-100"}`}
                     >
-                      {t.status[(reg.status === "CHECKED_IN" ? "CONFIRMED" : reg.status) as keyof typeof t.status] ||
-                        reg.status}
+                      {t.status[reg.status as keyof typeof t.status] || reg.status}
                     </span>
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
                     <span className="text-gray-600">
-                      {reg.payment
-                        ? t.payment[reg.payment.status as keyof typeof t.payment] || reg.payment.status
-                        : t.payment.notApplicable}
+                      {(() => {
+                        const payment = displayPayment(reg.payments);
+                        return payment
+                          ? t.payment[payment.status as keyof typeof t.payment] || payment.status
+                          : t.payment.notApplicable;
+                      })()}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">
@@ -186,12 +189,13 @@ export default async function DashboardRegistrationsPage({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      {reg.status === "PENDING" && reg.event.price > 0 && (
-                        <ConfirmPaymentButton registrationId={reg.id} />
-                      )}
-                      {reg.status !== "CANCELLED" && reg.status !== "CHECKED_IN" && (
+                      {(reg.status === "PENDING" || reg.payments.some((payment) => payment.status === "PENDING")) &&
+                        reg.event.price > 0 && <ConfirmPaymentButton registrationId={reg.id} />}
+                      {reg.status === "CANCELLED" ? (
+                        <RestoreParticipantButton registrationId={reg.id} />
+                      ) : reg.status !== "CHECKED_IN" ? (
                         <RemoveParticipantButton registrationId={reg.id} />
-                      )}
+                      ) : null}
                     </div>
                   </td>
                 </tr>

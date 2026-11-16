@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { releaseExpiredReservations } from "@/lib/reservations";
+import { syncTicketPasses } from "@/lib/tickets";
 import { getStripe } from "@/lib/stripe";
 
 const CHECKOUT_MINUTES = 31;
@@ -53,31 +54,35 @@ function revalidatePayment(slug?: string) {
   if (slug) revalidatePath(`/events/${slug}`);
 }
 
-export async function createCheckoutUrl(registrationId: string, userId: string) {
+export async function createCheckoutUrl(registrationId: string, userId: string, paymentId?: string) {
   const stripe = getStripe();
   if (!stripe) return { error: "stripeNotConfigured" as const };
 
   const registration = await prisma.registration.findUnique({
     where: { id: registrationId },
-    include: { payment: true, event: true },
+    include: { payments: { orderBy: { createdAt: "desc" } }, event: true },
   });
   if (!registration || registration.userId !== userId) return { error: "noActiveHold" as const };
-  if (
-    registration.payment?.status === "COMPLETED" ||
-    registration.status === "CONFIRMED" ||
-    registration.status === "CHECKED_IN"
-  ) {
-    return { error: "paymentRecorded" as const };
-  }
-  if (registration.status !== "PENDING" || !registration.payment) return { error: "noActiveHold" as const };
-  if (!registration.reservedUntil || registration.reservedUntil < new Date()) {
+
+  const payment = paymentId
+    ? registration.payments.find((item) => item.id === paymentId)
+    : registration.payments.find((item) => item.status === "PENDING");
+  if (!payment) return { error: "noActiveHold" as const };
+  if (payment.status === "COMPLETED") return { error: "paymentRecorded" as const };
+
+  const addon = registration.status === "CONFIRMED" || registration.status === "CHECKED_IN";
+  if (!addon && registration.status !== "PENDING") return { error: "noActiveHold" as const };
+  if (payment.status !== "PENDING") return { error: "noActiveHold" as const };
+
+  const hold = addon ? payment.reservedUntil : registration.reservedUntil ?? payment.reservedUntil;
+  if (!hold || hold < new Date()) {
     await releaseExpiredReservations(prisma, registration.eventId);
     return { error: "reservationExpired" as const };
   }
   if (registration.event.price <= 0) return { error: "stripeCheckoutFailed" as const };
 
-  if (registration.payment.externalId?.startsWith("cs_")) {
-    const existing = await stripe.checkout.sessions.retrieve(registration.payment.externalId);
+  if (payment.externalId?.startsWith("cs_")) {
+    const existing = await stripe.checkout.sessions.retrieve(payment.externalId);
     if (existing.status === "open" && existing.url) return { url: existing.url };
     if (existing.payment_status === "paid") {
       const fulfilled = await fulfillCheckoutSession(existing.id, userId, true);
@@ -93,14 +98,14 @@ export async function createCheckoutUrl(registrationId: string, userId: string) 
     client_reference_id: registration.id,
     metadata: {
       registrationId: registration.id,
-      paymentId: registration.payment.id,
+      paymentId: payment.id,
     },
     payment_intent_data: {
-      metadata: { registrationId: registration.id },
+      metadata: { registrationId: registration.id, paymentId: payment.id },
     },
     line_items: [
       {
-        quantity: registration.quantity,
+        quantity: payment.quantity,
         price_data: {
           currency: "kzt",
           unit_amount: registration.event.price * 100,
@@ -114,12 +119,12 @@ export async function createCheckoutUrl(registrationId: string, userId: string) 
   });
 
   await prisma.payment.update({
-    where: { id: registration.payment.id },
+    where: { id: payment.id },
     data: {
       method: "stripe",
       externalId: session.id,
       status: "PENDING",
-      amount: registration.event.price * registration.quantity,
+      amount: registration.event.price * payment.quantity,
     },
   });
 
@@ -145,33 +150,35 @@ export async function fulfillCheckoutSession(sessionId: string, userId?: string,
 
   const registration = await prisma.registration.findUnique({
     where: { id: registrationId },
-    include: { payment: true, event: true },
+    include: { payments: true, event: true },
   });
-  if (!registration?.payment) return { error: "noActiveHold" as const };
+  if (!registration) return { error: "noActiveHold" as const };
   if (userId && registration.userId !== userId) return { error: "noActiveHold" as const };
 
-  if (
-    registration.payment.status === "COMPLETED" &&
-    (registration.status === "CONFIRMED" || registration.status === "CHECKED_IN")
-  ) {
-    return { ok: true as const };
-  }
+  const paymentId = session.metadata?.paymentId;
+  const payment = paymentId
+    ? registration.payments.find((item) => item.id === paymentId)
+    : registration.payments.find((item) => item.status === "PENDING") ?? registration.payments[0];
+  if (!payment) return { error: "noActiveHold" as const };
+  if (payment.status === "COMPLETED") return { ok: true as const };
   if (session.payment_status !== "paid") return { pending: true as const };
 
   const paidAt = paidAtFrom(session);
+  const addon = registration.status === "CONFIRMED" || registration.status === "CHECKED_IN";
+  const hold = addon ? payment.reservedUntil : registration.reservedUntil;
   const onTime =
-    registration.status === "PENDING" &&
-    registration.reservedUntil != null &&
-    paidAt.getTime() <= registration.reservedUntil.getTime();
+    hold != null &&
+    paidAt.getTime() <= hold.getTime() &&
+    (addon || registration.status === "PENDING");
   const intentId = paymentIntentId(session);
 
   if (!onTime) {
     await refundPaidSession(stripe, session);
     await prisma.payment.update({
-      where: { id: registration.payment.id },
+      where: { id: payment.id },
       data: { status: "REFUNDED", method: "stripe", externalId: intentId, paidAt: null },
     });
-    if (registration.status === "PENDING") {
+    if (!addon && registration.status === "PENDING") {
       await prisma.registration.update({
         where: { id: registration.id },
         data: { status: "CANCELLED" },
@@ -181,36 +188,55 @@ export async function fulfillCheckoutSession(sessionId: string, userId?: string,
     return { error: "reservationExpired" as const };
   }
 
-  await prisma.$transaction([
-    prisma.registration.update({
-      where: { id: registration.id },
-      data: { status: "CONFIRMED", reservedUntil: null },
-    }),
-    prisma.payment.update({
-      where: { id: registration.payment.id },
+  await prisma.$transaction(async (tx) => {
+    const marked = await tx.payment.updateMany({
+      where: { id: payment.id, status: "PENDING" },
       data: {
         status: "COMPLETED",
         paidAt,
         method: "stripe",
         externalId: intentId,
-        amount: registration.event.price * registration.quantity,
+        amount: registration.event.price * payment.quantity,
+        reservedUntil: null,
       },
-    }),
-  ]);
+    });
+    if (marked.count !== 1) return;
+    const saved = addon
+      ? await tx.registration.update({
+          where: { id: registration.id },
+          data: { quantity: { increment: payment.quantity } },
+        })
+      : await tx.registration.update({
+          where: { id: registration.id },
+          data: { status: "CONFIRMED", reservedUntil: null },
+        });
+    await syncTicketPasses(tx, saved);
+  });
   if (revalidate) revalidatePayment(registration.event.slug);
   return { ok: true as const };
 }
 
 export async function markStripePaymentFailed(intent: Stripe.PaymentIntent) {
+  const paymentId = intent.metadata?.paymentId;
   const registrationId = intent.metadata?.registrationId;
-  if (!registrationId) return;
-  await prisma.payment.updateMany({
-    where: { registrationId, status: "PENDING" },
-    data: { status: "FAILED", method: "stripe" },
-  });
-  const registration = await prisma.registration.findUnique({
-    where: { id: registrationId },
-    select: { event: { select: { slug: true } } },
-  });
+  if (paymentId) {
+    await prisma.payment.updateMany({
+      where: { id: paymentId, status: "PENDING" },
+      data: { status: "FAILED", method: "stripe" },
+    });
+  } else if (registrationId) {
+    await prisma.payment.updateMany({
+      where: { registrationId, status: "PENDING" },
+      data: { status: "FAILED", method: "stripe" },
+    });
+  } else {
+    return;
+  }
+  const registration = registrationId
+    ? await prisma.registration.findUnique({
+        where: { id: registrationId },
+        select: { event: { select: { slug: true } } },
+      })
+    : null;
   revalidatePayment(registration?.event.slug);
 }

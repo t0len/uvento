@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
+import { displayPayment } from "@/lib/payments";
 import { filterQuery, registrationWhere } from "@/lib/registration-filters";
 
 function cell(value: string) {
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
         include: {
           user: { select: { name: true, email: true } },
           event: { select: { title: true } },
-          payment: { select: { status: true } },
+          payments: { select: { status: true, createdAt: true } },
         },
         orderBy: { createdAt: "desc" },
       })
@@ -43,7 +44,10 @@ export async function GET(request: Request) {
     reg.event.title,
     reg.createdAt.toISOString().slice(0, 10),
     t.status[reg.status as keyof typeof t.status] || reg.status,
-    reg.payment ? t.payment[reg.payment.status as keyof typeof t.payment] || reg.payment.status : t.payment.none,
+    (() => {
+      const payment = displayPayment(reg.payments);
+      return payment ? t.payment[payment.status as keyof typeof t.payment] || payment.status : t.payment.none;
+    })(),
   ]);
   const csv = [header, ...rows].map((row) => row.map(cell).join(",")).join("\n");
   const filename = filterQuery(filters).toString() ? "participants-filtered.csv" : "participants.csv";

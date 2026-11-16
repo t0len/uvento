@@ -20,15 +20,34 @@ export async function releaseExpiredReservations(
     },
     select: { id: true },
   });
-  if (expired.length === 0) return 0;
   const ids = expired.map((item) => item.id);
-  await db.payment.updateMany({
-    where: { registrationId: { in: ids }, status: "PENDING" },
-    data: { status: "FAILED" },
+  if (ids.length > 0) {
+    await db.payment.updateMany({
+      where: { registrationId: { in: ids }, status: "PENDING" },
+      data: { status: "FAILED" },
+    });
+    await db.registration.updateMany({
+      where: { id: { in: ids } },
+      data: { status: "CANCELLED", reservedUntil: null },
+    });
+  }
+
+  const expiredAddons = await db.payment.findMany({
+    where: {
+      status: "PENDING",
+      reservedUntil: { lt: now },
+      registration: {
+        status: { in: ["CONFIRMED", "CHECKED_IN"] },
+        ...(eventId ? { eventId } : {}),
+      },
+    },
+    select: { id: true },
   });
-  await db.registration.updateMany({
-    where: { id: { in: ids } },
-    data: { status: "CANCELLED", reservedUntil: null },
-  });
-  return ids.length;
+  if (expiredAddons.length > 0) {
+    await db.payment.updateMany({
+      where: { id: { in: expiredAddons.map((item) => item.id) } },
+      data: { status: "FAILED" },
+    });
+  }
+  return ids.length + expiredAddons.length;
 }

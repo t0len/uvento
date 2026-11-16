@@ -9,10 +9,12 @@ import { formatEventTime } from "@/lib/format";
 
 export function PayScreen({
   registrationId,
+  paymentId,
   reservedUntil,
   cancelled,
 }: {
   registrationId: string;
+  paymentId: string;
   reservedUntil: string | null;
   cancelled: boolean;
 }) {
@@ -42,7 +44,7 @@ export function PayScreen({
         onClick={() => {
           startTransition(async () => {
             setError(null);
-            const result = await startStripeCheckout(registrationId);
+            const result = await startStripeCheckout(registrationId, paymentId);
             if ("error" in result) {
               setError(result.error);
               return;

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { EventCover } from "@/components/events/event-cover";
 import { formatEventDate, formatEventTime, formatKzt } from "@/lib/format";
 
@@ -31,6 +32,13 @@ type CatalogLabels = {
   searchPlaceholder: string;
   search: string;
   allCategories: string;
+  allTypes: string;
+  typeOpen: string;
+  typeFree: string;
+  typePaid: string;
+  allDates: string;
+  thisWeek: string;
+  thisMonth: string;
   noResults: string;
   noUpcoming: string;
   openEvent: string;
@@ -51,6 +59,8 @@ export function EventCatalog({
   labels,
   initialQuery = "",
   initialCategory = "",
+  initialType = "",
+  initialWhen = "",
   initialPage = 1,
 }: {
   events: CatalogEvent[];
@@ -59,23 +69,52 @@ export function EventCatalog({
   labels: CatalogLabels;
   initialQuery?: string;
   initialCategory?: string;
+  initialType?: string;
+  initialWhen?: string;
   initialPage?: number;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [draft, setDraft] = useState(initialQuery);
   const [category, setCategory] = useState(initialCategory);
+  const [participation, setParticipation] = useState(initialType);
+  const [when, setWhen] = useState(initialWhen);
   const [page, setPage] = useState(initialPage);
+
+  function writeUrl(next: { q: string; category: string; type: string; when: string; page: number }) {
+    const params = new URLSearchParams();
+    if (next.q) params.set("q", next.q);
+    if (next.category) params.set("category", next.category);
+    if (next.type) params.set("type", next.type);
+    if (next.when) params.set("when", next.when);
+    if (next.page > 1) params.set("page", String(next.page));
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
 
   const filtered = useMemo(() => {
     const needle = foldSearch(draft);
+    const from = new Date();
+    from.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(from);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const monthEnd = new Date(from.getFullYear(), from.getMonth() + 1, 1);
     return events.filter((event) => {
       if (category && !event.categories.some((item) => item.slug === category)) return false;
+      if (participation && event.participationType !== participation) return false;
+      if (when) {
+        if (!event.startDate) return false;
+        const start = new Date(event.startDate);
+        if (when === "week" && (start < from || start >= weekEnd)) return false;
+        if (when === "month" && (start < from || start >= monthEnd)) return false;
+      }
       if (!needle) return true;
       const haystack = foldSearch(
         [event.title, event.shortDescription ?? "", event.description].join(" "),
       );
       return haystack.includes(needle);
     });
-  }, [events, category, draft]);
+  }, [events, category, draft, participation, when]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pages);
@@ -84,6 +123,7 @@ export function EventCatalog({
   function selectCategory(slug: string) {
     setCategory(slug);
     setPage(1);
+    writeUrl({ q: draft, category: slug, type: participation, when, page: 1 });
   }
 
   return (
@@ -99,8 +139,10 @@ export function EventCatalog({
             name="q"
             value={draft}
             onChange={(event) => {
-              setDraft(event.target.value);
+              const value = event.target.value;
+              setDraft(value);
               setPage(1);
+              writeUrl({ q: value, category, type: participation, when, page: 1 });
             }}
             placeholder={labels.searchPlaceholder}
             className="min-w-0 flex-1 rounded-lg border border-gray-300 px-4 py-2 text-sm outline-none focus:border-gray-500 sm:w-64 sm:flex-none"
@@ -140,6 +182,38 @@ export function EventCatalog({
             {cat.label}
           </button>
         ))}
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <select
+          value={participation}
+          onChange={(event) => {
+            const value = event.target.value;
+            setParticipation(value);
+            setPage(1);
+            writeUrl({ q: draft, category, type: value, when, page: 1 });
+          }}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">{labels.allTypes}</option>
+          <option value="OPEN">{labels.typeOpen}</option>
+          <option value="FREE">{labels.typeFree}</option>
+          <option value="PAID">{labels.typePaid}</option>
+        </select>
+        <select
+          value={when}
+          onChange={(event) => {
+            const value = event.target.value;
+            setWhen(value);
+            setPage(1);
+            writeUrl({ q: draft, category, type: participation, when: value, page: 1 });
+          }}
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
+        >
+          <option value="">{labels.allDates}</option>
+          <option value="week">{labels.thisWeek}</option>
+          <option value="month">{labels.thisMonth}</option>
+        </select>
       </div>
 
       {visible.length === 0 ? (
@@ -214,7 +288,11 @@ export function EventCatalog({
           {safePage > 1 ? (
             <button
               type="button"
-              onClick={() => setPage(safePage - 1)}
+              onClick={() => {
+                const next = safePage - 1;
+                setPage(next);
+                writeUrl({ q: draft, category, type: participation, when, page: next });
+              }}
               className="text-sm font-medium text-gray-700 hover:text-gray-900"
             >
               {labels.prev}
@@ -228,7 +306,11 @@ export function EventCatalog({
           {safePage < pages ? (
             <button
               type="button"
-              onClick={() => setPage(safePage + 1)}
+              onClick={() => {
+                const next = safePage + 1;
+                setPage(next);
+                writeUrl({ q: draft, category, type: participation, when, page: next });
+              }}
               className="text-sm font-medium text-gray-700 hover:text-gray-900"
             >
               {labels.next}

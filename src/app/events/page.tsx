@@ -9,7 +9,7 @@ import { EventCatalog, type CatalogEvent } from "./event-catalog";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; type?: string; when?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const { locale, t } = await getI18n();
@@ -57,12 +57,21 @@ export default async function EventsPage({
         locale={locale === "en" ? "en-US" : locale === "kk" ? "kk-KZ" : "ru-RU"}
         initialQuery={params.q ?? ""}
         initialCategory={params.category ?? ""}
+        initialType={params.type ?? ""}
+        initialWhen={params.when ?? ""}
         initialPage={Math.max(1, Number(params.page) || 1)}
         labels={{
           title: t.events.title,
           searchPlaceholder: t.events.searchPlaceholder,
           search: t.events.search,
           allCategories: t.events.allCategories,
+          allTypes: t.events.allTypes,
+          typeOpen: t.events.typeOpen,
+          typeFree: t.events.typeFree,
+          typePaid: t.events.typePaid,
+          allDates: t.events.allDates,
+          thisWeek: t.events.thisWeek,
+          thisMonth: t.events.thisMonth,
           noResults: t.events.noResults,
           noUpcoming: t.events.noUpcoming,
           openEvent: t.events.openEvent,

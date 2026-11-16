@@ -39,13 +39,6 @@ export async function syncTicketPasses(
     await db.ticket.deleteMany({ where: { id: { in: extra.map((item) => item.id) } } });
   }
 
-  if (registration.status === "CHECKED_IN") {
-    await db.ticket.updateMany({
-      where: { registrationId: registration.id, checkedInAt: null },
-      data: { checkedInAt: registration.checkedInAt ?? new Date() },
-    });
-  }
-
   return db.ticket.findMany({
     where: { registrationId: registration.id },
     orderBy: { position: "asc" },

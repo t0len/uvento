@@ -1,22 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useTransition } from "react";
 import { register } from "@/actions/auth";
 import Link from "next/link";
 import { useI18n, LanguageSwitcher } from "@/components/i18n/i18n-provider";
 
+function isRedirect(error: unknown) {
+  const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
+  return digest.startsWith("NEXT_REDIRECT");
+}
+
 export default function RegisterPage() {
   const { t } = useI18n();
-  const [error, submit, pending] = useActionState(async (_previous: string | null, formData: FormData) => {
-    try {
-      const result = await register(formData);
-      return result?.error ?? null;
-    } catch (error) {
-      const digest = typeof error === "object" && error && "digest" in error ? String(error.digest) : "";
-      if (digest.startsWith("NEXT_REDIRECT")) throw error;
-      return t.auth.createFailed;
-    }
-  }, null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
   return (
     <div className="relative rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
@@ -34,7 +31,23 @@ export default function RegisterPage() {
         <p className="mt-1 text-sm text-gray-500">{t.auth.registerSubtitle}</p>
       </div>
 
-      <form action={submit} className="space-y-4">
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const formData = new FormData(event.currentTarget);
+          setError(null);
+          startTransition(async () => {
+            try {
+              const result = await register(formData);
+              if (result?.error) setError(result.error);
+            } catch (error) {
+              if (isRedirect(error)) throw error;
+              setError(t.auth.createFailed);
+            }
+          });
+        }}
+      >
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700">
             {t.auth.name}

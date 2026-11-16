@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { registerForEvent, cancelRegistration } from "@/actions/registrations";
+import { addTickets, cancelRegistration, registerForEvent } from "@/actions/registrations";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
@@ -21,6 +21,7 @@ export function RegisterButton({
   existingQuantity,
   participationType,
   slug,
+  hasPendingPayment,
 }: {
   eventId: string;
   price: number;
@@ -34,21 +35,25 @@ export function RegisterButton({
   existingQuantity: number;
   participationType: "OPEN" | "FREE" | "PAID";
   slug: string;
+  hasPendingPayment: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState(existingStatus);
   const [currentRegistrationId, setCurrentRegistrationId] = useState(registrationId);
+  const [pendingPayment, setPendingPayment] = useState(hasPendingPayment);
+  const [owned, setOwned] = useState(existingQuantity);
   const { locale, t } = useI18n();
-  const booked =
-    status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
+  const booked = status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
+  const buyingMore = status === "CONFIRMED" || status === "CHECKED_IN";
   const room = spotsLeft == null ? MAX_TICKETS_PER_ORDER : Math.max(spotsLeft, 0);
-  const max = booked ? Math.max(existingQuantity, 1) : Math.min(MAX_TICKETS_PER_ORDER, room);
-  const [quantity, setQuantity] = useState(booked ? Math.max(existingQuantity, 1) : 1);
-  const totalLabel = formatKzt(price * quantity, t.common.free, locale);
-  const canAdd = !booked && quantity < max;
-  const canRemove = !booked && quantity > 1;
+  const max = Math.min(MAX_TICKETS_PER_ORDER, room);
+  const [quantity, setQuantity] = useState(1);
+  const showStepper = participationType !== "OPEN" && !isPast && !isCancelled && (!booked || (buyingMore && !pendingPayment && max > 0));
+  const totalLabel = formatKzt(price * (showStepper ? quantity : booked ? owned : quantity), t.common.free, locale);
+  const canAdd = showStepper && quantity < max;
+  const canRemove = showStepper && quantity > 1;
 
   const ticketRow = (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -56,7 +61,10 @@ export function RegisterButton({
         <div>
           <p className="font-medium text-gray-900">{t.eventDetail.standardTicket}</p>
           <p className="mt-1 text-sm text-gray-500">{t.eventDetail.ticketAccess}</p>
-          {price > 0 && quantity > 1 ? (
+          {booked && owned > 0 ? (
+            <p className="mt-1 text-xs text-gray-400">{countTickets(owned, locale)}</p>
+          ) : null}
+          {price > 0 && showStepper && quantity > 1 ? (
             <p className="mt-1 text-xs text-gray-400">
               {formatKzt(price, t.common.free, locale)} × {quantity}
             </p>
@@ -64,7 +72,7 @@ export function RegisterButton({
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm font-semibold tabular-nums text-gray-900">{totalLabel}</span>
-          {participationType !== "OPEN" && !booked ? (
+          {showStepper ? (
             <div className="flex items-center rounded-lg border border-gray-200 bg-white">
               <button
                 type="button"
@@ -86,10 +94,6 @@ export function RegisterButton({
                 +
               </button>
             </div>
-          ) : quantity > 1 ? (
-            <span className="rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-800">
-              {countTickets(quantity, locale)}
-            </span>
           ) : null}
         </div>
       </div>
@@ -118,17 +122,64 @@ export function RegisterButton({
         {isCancelled ? t.status.CANCELLED : t.status.COMPLETED}
       </button>
     );
-  } else if (status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN") {
+  } else if (buyingMore && !pendingPayment && max > 0) {
+    action = (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+        <button
+          onClick={() => {
+            startTransition(async () => {
+              setError(null);
+              const res = await addTickets(eventId, quantity);
+              if (res?.error) setError(res.error);
+              else if (res?.success) {
+                if (res.status === "PENDING") {
+                  setPendingPayment(true);
+                  router.push(`/events/${slug}/pay`);
+                } else {
+                  setOwned(res.quantity ?? owned + quantity);
+                  setQuantity(1);
+                  router.refresh();
+                }
+              }
+            });
+          }}
+          disabled={isPending}
+          className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        >
+          {isPending ? t.common.loading : t.eventDetail.buyMore}
+        </button>
+        {status !== "CHECKED_IN" && currentRegistrationId ? (
+          <button
+            onClick={() => {
+              startTransition(async () => {
+                setError(null);
+                const res = await cancelRegistration(currentRegistrationId);
+                if (res?.error) setError(res.error);
+                else {
+                  setStatus("CANCELLED");
+                  setPendingPayment(false);
+                }
+              });
+            }}
+            disabled={isPending}
+            className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+          >
+            {t.events.cancelRegistration}
+          </button>
+        ) : null}
+      </div>
+    );
+  } else if (booked) {
     action = (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <span className="inline-flex items-center rounded-lg bg-green-50 px-4 py-3 text-sm font-medium text-green-700">
-          {status === "PENDING"
+          {status === "PENDING" || pendingPayment
             ? t.events.pendingPayment
             : status === "CHECKED_IN"
               ? t.status.CHECKED_IN
               : t.events.registered}
         </span>
-        {status !== "CHECKED_IN" && currentRegistrationId && (
+        {status !== "CHECKED_IN" && currentRegistrationId && !pendingPayment ? (
           <button
             onClick={() => {
               startTransition(async () => {
@@ -143,7 +194,7 @@ export function RegisterButton({
           >
             {t.events.cancelRegistration}
           </button>
-        )}
+        ) : null}
       </div>
     );
   } else {
@@ -157,7 +208,14 @@ export function RegisterButton({
             else if (res?.success) {
               setStatus(res.status);
               setCurrentRegistrationId(res.registrationId);
-              if (res.status === "PENDING") router.push(`/events/${slug}/pay`);
+              setOwned(res.quantity ?? quantity);
+              setQuantity(1);
+              if (res.status === "PENDING") {
+                setPendingPayment(true);
+                router.push(`/events/${slug}/pay`);
+              } else {
+                router.refresh();
+              }
             }
           });
         }}
@@ -173,7 +231,7 @@ export function RegisterButton({
     <div>
       {ticketRow}
       {action}
-      {status === "PENDING" && currentRegistrationId ? (
+      {(status === "PENDING" || pendingPayment) && currentRegistrationId ? (
         <Link
           href={`/events/${slug}/pay`}
           className="mt-4 inline-flex text-sm font-medium text-gray-900 underline"

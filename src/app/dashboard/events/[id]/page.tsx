@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate, formatKzt } from "@/lib/format";
+import { completedRevenue, displayPayment } from "@/lib/payments";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { EventActions } from "./event-actions";
 
@@ -25,7 +26,7 @@ export default async function DashboardEventDetailPage({
       registrations: {
         include: {
           user: { select: { name: true, email: true } },
-          payment: { select: { status: true, amount: true } },
+          payments: { select: { status: true, amount: true, quantity: true, reservedUntil: true, createdAt: true } },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -37,10 +38,20 @@ export default async function DashboardEventDetailPage({
   const isMember = event.organization.members.some((m) => m.userId === user.id);
   if (!isMember) notFound();
 
-  const heldSeats = event.registrations.reduce(
-    (sum, registration) => sum + (registration.status === "CANCELLED" ? 0 : registration.quantity),
-    0,
-  );
+  const now = new Date();
+  const heldSeats = event.registrations.reduce((sum, registration) => {
+    if (registration.status === "CANCELLED") return sum;
+    const addon = registration.payments
+      .filter(
+        (payment) =>
+          (registration.status === "CONFIRMED" || registration.status === "CHECKED_IN") &&
+          payment.status === "PENDING" &&
+          payment.reservedUntil != null &&
+          payment.reservedUntil > now,
+      )
+      .reduce((seats, payment) => seats + payment.quantity, 0);
+    return sum + registration.quantity + addon;
+  }, 0);
   if (!isMember) notFound();
 
   const statusColors: Record<string, string> = {
@@ -94,10 +105,9 @@ export default async function DashboardEventDetailPage({
               event.registrations
                 .filter(
                   (registration) =>
-                    (registration.status === "CONFIRMED" || registration.status === "CHECKED_IN") &&
-                    registration.payment?.status === "COMPLETED",
+                    registration.status === "CONFIRMED" || registration.status === "CHECKED_IN",
                 )
-                .reduce((sum, registration) => sum + (registration.payment?.amount ?? 0), 0),
+                .reduce((sum, registration) => sum + completedRevenue(registration.payments), 0),
               t.common.free,
               locale,
             )}
@@ -146,9 +156,12 @@ export default async function DashboardEventDetailPage({
                         />
                       </td>
                       <td className="hidden px-4 py-2 text-gray-500 sm:table-cell">
-                        {reg.payment
-                          ? t.payment[reg.payment.status as keyof typeof t.payment] || reg.payment.status
-                          : t.payment.none}
+                        {(() => {
+                          const payment = displayPayment(reg.payments);
+                          return payment
+                            ? t.payment[payment.status as keyof typeof t.payment] || payment.status
+                            : t.payment.none;
+                        })()}
                       </td>
                     </tr>
                   ))}
