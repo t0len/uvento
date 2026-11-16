@@ -1,7 +1,5 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-export const MAX_TICKETS_PER_ORDER = 10;
-
 type TicketDb = Prisma.TransactionClient | PrismaClient;
 
 export async function syncTicketPasses(
@@ -47,6 +45,6 @@ export async function syncTicketPasses(
 
 export function ticketQuantity(value: unknown) {
   const quantity = Number(value);
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_TICKETS_PER_ORDER) return null;
+  if (!Number.isSafeInteger(quantity) || quantity < 1) return null;
   return quantity;
 }

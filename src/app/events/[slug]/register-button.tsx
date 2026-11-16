@@ -6,7 +6,6 @@ import { addTickets, cancelRegistration, registerForEvent } from "@/actions/regi
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
-import { MAX_TICKETS_PER_ORDER } from "@/lib/tickets";
 
 export function RegisterButton({
   eventId,
@@ -47,12 +46,12 @@ export function RegisterButton({
   const { locale, t } = useI18n();
   const booked = status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
   const buyingMore = status === "CONFIRMED" || status === "CHECKED_IN";
-  const room = spotsLeft == null ? MAX_TICKETS_PER_ORDER : Math.max(spotsLeft, 0);
-  const max = Math.min(MAX_TICKETS_PER_ORDER, room);
+  const max = spotsLeft == null ? null : Math.max(spotsLeft, 0);
   const [quantity, setQuantity] = useState(1);
-  const showStepper = participationType !== "OPEN" && !isPast && !isCancelled && (!booked || (buyingMore && !pendingPayment && max > 0));
+  const hasRoom = max == null || max > 0;
+  const showStepper = participationType !== "OPEN" && !isPast && !isCancelled && (!booked || (buyingMore && !pendingPayment && hasRoom));
   const totalLabel = formatKzt(price * (showStepper ? quantity : booked ? owned : quantity), t.common.free, locale);
-  const canAdd = showStepper && quantity < max;
+  const canAdd = showStepper && (max == null || quantity < max);
   const canRemove = showStepper && quantity > 1;
 
   const ticketRow = (
@@ -88,7 +87,7 @@ export function RegisterButton({
                 type="button"
                 aria-label={t.eventDetail.addTicket}
                 disabled={!canAdd}
-                onClick={() => setQuantity((current) => Math.min(max, current + 1))}
+                onClick={() => setQuantity((current) => (max == null ? current + 1 : Math.min(max, current + 1)))}
                 className="px-3 py-2 text-base leading-none text-gray-900 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
               >
                 +
@@ -122,7 +121,7 @@ export function RegisterButton({
         {isCancelled ? t.status.CANCELLED : t.status.COMPLETED}
       </button>
     );
-  } else if (buyingMore && !pendingPayment && max > 0) {
+  } else if (buyingMore && !pendingPayment && hasRoom) {
     action = (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <button
