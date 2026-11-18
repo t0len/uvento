@@ -15,7 +15,7 @@ export default async function MySettingsPage() {
         : t.menu.roleStudent;
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
+    <div className="mx-auto w-full max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-bold text-gray-900">{t.my.settings}</h1>
       <p className="mt-1 text-sm text-gray-500">{t.my.settingsSub}</p>
 
