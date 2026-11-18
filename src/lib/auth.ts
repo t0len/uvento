@@ -44,7 +44,14 @@ const nextAuth = NextAuth({
 
 export const { handlers, signIn, signOut, auth } = nextAuth;
 
-export type AuthUser = { id: string; email: string; name: string; role: string };
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  lastName: string;
+  phone: string | null;
+  role: string;
+};
 
 export async function currentUser(): Promise<AuthUser | null> {
   const session = await auth();
@@ -52,14 +59,21 @@ export async function currentUser(): Promise<AuthUser | null> {
 
   const row = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, name: true, role: true, blocked: true },
+    select: { id: true, email: true, name: true, lastName: true, phone: true, role: true, blocked: true },
   });
   if (!row) return null;
   if (row.blocked) {
     await signOut({ redirectTo: "/login" });
     redirect("/login");
   }
-  return { id: row.id, email: row.email, name: row.name, role: row.role };
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    lastName: row.lastName,
+    phone: row.phone,
+    role: row.role,
+  };
 }
 
 export async function requireAuth(): Promise<AuthUser> {
@@ -68,11 +82,11 @@ export async function requireAuth(): Promise<AuthUser> {
   return user;
 }
 
-/** Home path after login — roles stay in separate workspaces. */
+/** Where a person lands after signing in. Organizers and admins keep their workspace. */
 export function homePathForRole(role: string) {
   if (role === "ADMIN") return "/admin";
   if (role === "ORGANIZER") return "/dashboard";
-  return "/my";
+  return "/";
 }
 
 /**

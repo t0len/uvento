@@ -8,12 +8,10 @@ import { useI18n } from "@/components/i18n/i18n-provider";
 export function EventActions({
   eventId,
   status,
-  slug,
   canDelete,
 }: {
   eventId: string;
   status: string;
-  slug: string;
   canDelete: boolean;
 }) {
   const { t } = useI18n();
@@ -36,13 +34,6 @@ export function EventActions({
           className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
         >
           {t.dashboard.edit}
-        </Link>
-        <Link
-          href={`/events/${slug}`}
-          className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
-          target="_blank"
-        >
-          {t.dashboard.preview}
         </Link>
         {status === "DRAFT" && (
           <button

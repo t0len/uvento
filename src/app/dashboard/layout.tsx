@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireRole } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { UserMenu } from "@/components/layout/user-menu";
 import { SectionNav } from "@/components/layout/section-nav";
 import { LanguageSwitcher } from "@/components/i18n/i18n-provider";
@@ -53,7 +54,7 @@ export default async function DashboardLayout({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <LanguageSwitcher compact />
-            <UserMenu name={user.name || t.common.user} email={user.email} role={user.role} />
+            <UserMenu name={personName(user) || t.common.user} email={user.email} role={user.role} />
           </div>
         </div>
         <SectionNav

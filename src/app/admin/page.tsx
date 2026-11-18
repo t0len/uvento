@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, tReplace } from "@/lib/i18n";
@@ -30,7 +31,7 @@ export default async function AdminPage() {
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">{t.admin.title}</h1>
         <p className="mt-1 text-sm text-gray-500">
-          {tReplace(t.admin.subtitle, { name: user.name })}
+          {tReplace(t.admin.subtitle, { name: personName(user) })}
         </p>
       </div>
 

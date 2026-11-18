@@ -3,7 +3,8 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { homePathForRole, requireAuth, signIn } from "@/lib/auth";
-import { registerSchema, loginSchema } from "@/lib/validations/auth";
+import { normalizePhone } from "@/lib/person";
+import { registerSchema, loginSchema, profileSchema } from "@/lib/validations/auth";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { AuthError } from "next-auth";
@@ -17,10 +18,12 @@ async function say(code: string) {
 
 export async function register(formData: FormData) {
   const raw = {
-    name: formData.get("name") as string,
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-    confirmPassword: formData.get("confirmPassword") as string,
+    name: formData.get("name"),
+    lastName: formData.get("lastName"),
+    phone: formData.get("phone"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    confirmPassword: formData.get("confirmPassword"),
   };
 
   const validated = registerSchema.safeParse(raw);
@@ -28,7 +31,9 @@ export async function register(formData: FormData) {
     return { error: await say(validated.error.issues[0].message) };
   }
 
-  const { name, email, password } = validated.data;
+  const { name, lastName, email, password } = validated.data;
+  const phone = normalizePhone(validated.data.phone);
+  if (!phone) return { error: await say("phoneInvalid") };
 
   const existingUser = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
@@ -40,7 +45,7 @@ export async function register(formData: FormData) {
   const passwordHash = await bcrypt.hash(password, 10);
 
   await prisma.user.create({
-    data: { name, email, passwordHash },
+    data: { name, lastName, phone, email, passwordHash },
   });
 
   try {
@@ -56,7 +61,7 @@ export async function register(formData: FormData) {
     throw error;
   }
 
-  redirect("/my");
+  redirect(homePathForRole("STUDENT"));
 }
 
 export async function login(formData: FormData) {
@@ -105,18 +110,28 @@ export async function login(formData: FormData) {
   redirect(homePathForRole(user.role));
 }
 
-export async function updateName(
+export async function updateProfile(
   _state: { error?: string; success?: boolean } | undefined,
   formData: FormData,
 ) {
   const user = await requireAuth();
-  const name = String(formData.get("name") || "").trim();
-  if (name.length < 2) return { error: await say("nameShort") };
+  const parsed = profileSchema.safeParse({
+    name: formData.get("name"),
+    lastName: formData.get("lastName"),
+    phone: formData.get("phone"),
+  });
+  if (!parsed.success) return { error: await say(parsed.error.issues[0].message) };
+
+  const phone = normalizePhone(parsed.data.phone);
+  if (!phone) return { error: await say("phoneInvalid") };
+
   await prisma.user.update({
     where: { id: user.id },
-    data: { name },
+    data: { name: parsed.data.name, lastName: parsed.data.lastName, phone },
   });
   revalidatePath("/my", "layout");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/admin", "layout");
   revalidatePath("/my/settings");
   return { success: true as const };
 }

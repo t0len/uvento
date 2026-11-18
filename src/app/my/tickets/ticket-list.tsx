@@ -3,11 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
+import { personName } from "@/lib/person";
 import { QRTicket } from "./qr-ticket";
 
 export type TicketPass = {
   code: string;
   position: number;
+  holderName: string;
+  holderLastName: string;
   checkedInAt: string | null;
 };
 
@@ -84,23 +87,27 @@ export function TicketList({ tickets }: { tickets: TicketItem[] }) {
                 ) : null}
                 {showQr ? (
                   <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {ticket.passes.map((pass) => (
+                    {ticket.passes.map((pass) => {
+                      const holder = personName({ name: pass.holderName, lastName: pass.holderLastName });
+                      const number = fill(t.myTickets.ticketNumber, {
+                        n: String(pass.position),
+                        total: String(ticket.quantity),
+                      });
+                      return (
                       <div key={pass.code} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
                         <QRTicket
                           ticketCode={pass.code}
                           eventTitle={ticket.title}
-                          hint={fill(t.myTickets.ticketNumber, {
-                            n: String(pass.position),
-                            total: String(ticket.quantity),
-                          })}
-                          caption={t.myTickets.showAtEntrance}
+                          hint={holder || number}
+                          caption={holder ? `${number} · ${t.myTickets.showAtEntrance}` : t.myTickets.showAtEntrance}
                           shareLabel={t.myTickets.share}
                           fileName={`${ticket.slug}-ticket-${pass.position}.png`}
                           used={Boolean(pass.checkedInAt)}
                           usedLabel={t.myTickets.used}
                         />
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="mt-4 flex min-h-24 items-center justify-center rounded-lg bg-gray-100 px-4 text-center text-sm text-gray-500">

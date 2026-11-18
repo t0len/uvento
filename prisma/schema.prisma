@@ -46,9 +46,10 @@ model User {
   email         String    @unique
   passwordHash  String
   name          String
+  lastName      String    @default("")
+  phone         String?
   role          UserRole  @default(STUDENT)
   blocked       Boolean   @default(false)
-  phone         String?
   avatarUrl     String?
   emailVerified DateTime?
   createdAt     DateTime  @default(now())
@@ -166,6 +167,9 @@ model Ticket {
   registrationId String
   code           String    @unique @default(cuid())
   position       Int
+  holderName     String    @default("")
+  holderLastName String    @default("")
+  holderPhone    String    @default("")
   checkedInAt    DateTime?
 
   registration Registration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
@@ -186,6 +190,7 @@ model Payment {
   externalId     String?
   paidAt         DateTime?
   reservedUntil  DateTime?
+  holders        Json?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 

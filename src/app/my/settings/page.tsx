@@ -1,4 +1,5 @@
 import { requireAuth } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { getI18n } from "@/lib/i18n";
 import { ProfileForm } from "./profile-form";
 
@@ -24,13 +25,13 @@ export default async function MySettingsPage() {
             {user.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">{user.name}</h2>
+            <h2 className="text-lg font-semibold text-gray-900">{personName(user)}</h2>
             <p className="text-sm text-gray-500">{user.email}</p>
           </div>
         </div>
 
         <div className="mt-6 space-y-4 border-t border-gray-200 pt-6">
-          <ProfileForm name={user.name} />
+          <ProfileForm name={user.name} lastName={user.lastName} phone={user.phone} />
           <div>
             <label className="text-sm font-medium text-gray-500">{t.common.email}</label>
             <p className="mt-1 text-gray-900">{user.email}</p>

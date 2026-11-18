@@ -3,10 +3,27 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
 import { releaseExpiredReservations } from "@/lib/reservations";
-import { syncTicketPasses } from "@/lib/tickets";
+import { holdersForPass, syncTicketPasses } from "@/lib/tickets";
 import { getStripe } from "@/lib/stripe";
 
 const CHECKOUT_MINUTES = 31;
+
+/** Stripe charges KZT in tiyn, so ₸1 000 is 100000. */
+export function chargeMinor(price: number, quantity: number) {
+  return price * quantity * 100;
+}
+
+export async function expireOpenCheckout(sessionId: string | null | undefined) {
+  if (!sessionId?.startsWith("cs_")) return;
+  const stripe = getStripe();
+  if (!stripe) return;
+  try {
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    if (session.status === "open") await stripe.checkout.sessions.expire(sessionId);
+  } catch (error) {
+    console.error("stripe expire", error instanceof Error ? error.message : error);
+  }
+}
 
 async function appOrigin() {
   const headerList = await headers();
@@ -48,7 +65,6 @@ async function refundPaidSession(stripe: Stripe, session: Stripe.Checkout.Sessio
 
 function revalidatePayment(slug?: string) {
   revalidatePath("/my/tickets");
-  revalidatePath("/my/events");
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/registrations");
   if (slug) revalidatePath(`/events/${slug}`);
@@ -81,9 +97,11 @@ export async function createCheckoutUrl(registrationId: string, userId: string, 
   }
   if (registration.event.price <= 0) return { error: "stripeCheckoutFailed" as const };
 
+  const due = chargeMinor(registration.event.price, payment.quantity);
   if (payment.externalId?.startsWith("cs_")) {
     const existing = await stripe.checkout.sessions.retrieve(payment.externalId);
-    if (existing.status === "open" && existing.url) return { url: existing.url };
+    if (existing.status === "open" && existing.url && existing.amount_total === due) return { url: existing.url };
+    if (existing.status === "open") await expireOpenCheckout(existing.id);
     if (existing.payment_status === "paid") {
       const fulfilled = await fulfillCheckoutSession(existing.id, userId, true);
       if ("ok" in fulfilled && fulfilled.ok) return { url: "/my/tickets" };
@@ -108,7 +126,7 @@ export async function createCheckoutUrl(registrationId: string, userId: string, 
         quantity: payment.quantity,
         price_data: {
           currency: "kzt",
-          unit_amount: registration.event.price * 100,
+          unit_amount: chargeMinor(registration.event.price, 1),
           product_data: { name: registration.event.title },
         },
       },
@@ -124,7 +142,7 @@ export async function createCheckoutUrl(registrationId: string, userId: string, 
       method: "stripe",
       externalId: session.id,
       status: "PENDING",
-      amount: registration.event.price * payment.quantity,
+      amount: due / 100,
     },
   });
 
@@ -160,8 +178,19 @@ export async function fulfillCheckoutSession(sessionId: string, userId?: string,
     ? registration.payments.find((item) => item.id === paymentId)
     : registration.payments.find((item) => item.status === "PENDING") ?? registration.payments[0];
   if (!payment) return { error: "noActiveHold" as const };
-  if (payment.status === "COMPLETED") return { ok: true as const };
   if (session.payment_status !== "paid") return { pending: true as const };
+
+  const due = chargeMinor(registration.event.price, payment.quantity);
+  if (session.amount_total !== due) {
+    await refundPaidSession(stripe, session);
+    await prisma.payment.updateMany({
+      where: { id: payment.id, status: "PENDING" },
+      data: { method: null, externalId: null, paidAt: null },
+    });
+    if (revalidate) revalidatePayment(registration.event.slug);
+    return { error: "stripeAmountMismatch" as const };
+  }
+  if (payment.status === "COMPLETED") return { ok: true as const };
 
   const paidAt = paidAtFrom(session);
   const addon = registration.status === "CONFIRMED" || registration.status === "CHECKED_IN";
@@ -196,7 +225,7 @@ export async function fulfillCheckoutSession(sessionId: string, userId?: string,
         paidAt,
         method: "stripe",
         externalId: intentId,
-        amount: registration.event.price * payment.quantity,
+        amount: due / 100,
         reservedUntil: null,
       },
     });
@@ -210,7 +239,8 @@ export async function fulfillCheckoutSession(sessionId: string, userId?: string,
           where: { id: registration.id },
           data: { status: "CONFIRMED", reservedUntil: null },
         });
-    await syncTicketPasses(tx, saved);
+    const named = addon ? holdersForPass(payment.holders, payment.quantity) : null;
+    await syncTicketPasses(tx, saved, named ? { holders: named, startPosition: registration.quantity + 1 } : undefined);
   });
   if (revalidate) revalidatePayment(registration.event.slug);
   return { ok: true as const };

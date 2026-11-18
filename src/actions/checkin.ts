@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { formatEventDate, formatEventTime } from "@/lib/format";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
+import { personName } from "@/lib/person";
 import { syncTicketPasses } from "@/lib/tickets";
 import { revalidatePath } from "next/cache";
 
@@ -13,8 +14,15 @@ async function say(code: string) {
   return errorText(t, code);
 }
 
+function passName(
+  pass: { holderName: string; holderLastName: string },
+  user: { name: string; lastName: string },
+) {
+  return personName({ name: pass.holderName, lastName: pass.holderLastName }) || personName(user);
+}
+
 const registrationInclude = {
-  user: { select: { name: true, email: true } },
+  user: { select: { name: true, lastName: true, phone: true, email: true } },
   event: { select: { id: true, title: true, slug: true, organizationId: true, status: true, endDate: true } },
 } as const;
 
@@ -69,7 +77,7 @@ export async function checkIn(ticketCode: string, eventId: string) {
   if (pass.checkedInAt) {
     return {
       error: tReplace(t.errors.alreadyCheckedIn, {
-        name: registration.user.name,
+        name: passName(pass, registration.user),
         when: whenOf(pass.checkedInAt ?? registration.checkedInAt),
       }),
     };
@@ -98,7 +106,7 @@ export async function checkIn(ticketCode: string, eventId: string) {
   if (!marked) {
     return {
       error: tReplace(t.errors.alreadyCheckedIn, {
-        name: registration.user.name,
+        name: passName(pass, registration.user),
         when: "",
       }),
     };
@@ -110,8 +118,9 @@ export async function checkIn(ticketCode: string, eventId: string) {
   return {
     success: true as const,
     attendee: {
-      name: registration.user.name,
+      name: passName(pass, registration.user),
       email: registration.user.email,
+      phone: pass.holderPhone || registration.user.phone,
       event: registration.event.title,
       seatLabel:
         registration.quantity > 1

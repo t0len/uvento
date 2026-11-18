@@ -13,10 +13,13 @@ import { RegisterButton } from "./register-button";
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ tickets?: string }>;
 }) {
   const { slug: rawSlug } = await params;
+  const { tickets } = await searchParams;
   const slug = decodeURIComponent(rawSlug);
   const { locale, t } = await getI18n();
   await releaseExpiredReservations();
@@ -32,6 +35,12 @@ export default async function EventDetailPage({
   if (!event || event.status === "DRAFT") notFound();
 
   const session = await auth();
+  const buyer = session?.user?.id
+    ? await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { name: true, lastName: true, phone: true },
+      })
+    : null;
   let userRegistration = null;
   if (session?.user) {
     userRegistration = await prisma.registration.findUnique({
@@ -42,6 +51,8 @@ export default async function EventDetailPage({
 
   const taken = await occupiedSeats(event.id);
   const spotsLeft = event.capacity == null ? null : event.capacity - taken;
+  const requestedTickets = Number(tickets);
+  const initialQuantity = Number.isInteger(requestedTickets) && requestedTickets > 0 ? requestedTickets : 1;
   const activeRegistration =
     userRegistration && userRegistration.status !== "CANCELLED" ? userRegistration : null;
   const isCancelled = event.status === "CANCELLED";
@@ -130,8 +141,14 @@ export default async function EventDetailPage({
             isFull={spotsLeft != null && spotsLeft <= 0 && !activeRegistration}
             spotsLeft={spotsLeft}
             existingQuantity={activeRegistration?.quantity ?? 1}
+            initialQuantity={initialQuantity}
             participationType={event.participationType}
             slug={event.slug}
+            buyer={
+              buyer
+                ? { name: buyer.name, lastName: buyer.lastName, phone: buyer.phone ?? "" }
+                : null
+            }
             hasPendingPayment={
               activeRegistration?.status === "PENDING" ||
               Boolean(activeRegistration?.payments.some((payment) => payment.status === "PENDING"))

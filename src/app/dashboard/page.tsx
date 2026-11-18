@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
@@ -162,7 +163,7 @@ export default async function DashboardPage() {
       )}
 
       <p className="mt-6 text-xs text-gray-400">
-        {tReplace(t.dashboard.subtitle, { name: user.name })}
+        {tReplace(t.dashboard.subtitle, { name: personName(user) })}
       </p>
     </div>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { currentUser } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { getI18n } from "@/lib/i18n";
 import { UserMenu } from "./user-menu";
 import { SectionNav } from "./section-nav";
@@ -41,7 +42,7 @@ export async function Header() {
         <div className="flex shrink-0 items-center gap-2">
           <LanguageSwitcher compact />
           {user ? (
-            <UserMenu name={user.name || t.common.user} email={user.email} role={user.role} />
+            <UserMenu name={personName(user) || t.common.user} email={user.email} role={user.role} />
           ) : (
             <>
               <Link

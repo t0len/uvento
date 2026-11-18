@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { UserRole } from "@prisma/client";
 import { requireRole } from "@/lib/auth";
+import { normalizePhone } from "@/lib/person";
 import { registerSchema } from "@/lib/validations/auth";
 import { prisma } from "@/lib/prisma";
 import { canChangeRole, canManageUsers } from "@/lib/permissions";
@@ -75,6 +76,8 @@ export async function createOrganizerAccount(formData: FormData) {
   await requireRole("ADMIN");
   const parsed = registerSchema.safeParse({
     name: formData.get("name"),
+    lastName: formData.get("lastName"),
+    phone: formData.get("phone"),
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("password"),
@@ -87,7 +90,9 @@ export async function createOrganizerAccount(formData: FormData) {
     : null;
   if (!organization) return { error: await say("chooseOrganization") };
 
-  const { name, email, password } = parsed.data;
+  const { name, lastName, email, password } = parsed.data;
+  const phone = normalizePhone(parsed.data.phone);
+  if (!phone) return { error: await say("phoneInvalid") };
   const existing = await prisma.user.findFirst({
     where: { email: { equals: email, mode: "insensitive" } },
   });
@@ -97,6 +102,8 @@ export async function createOrganizerAccount(formData: FormData) {
   await prisma.user.create({
     data: {
       name,
+      lastName,
+      phone,
       email,
       passwordHash,
       role: "ORGANIZER",

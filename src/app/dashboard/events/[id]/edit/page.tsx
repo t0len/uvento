@@ -39,6 +39,8 @@ export default async function EditEventPage({
         <EventForm
           categories={categories}
           eventId={event.id}
+          organizationName={event.organization.name}
+          published={event.status === "PUBLISHED"}
           initial={{
             title: event.title,
             description: event.description,

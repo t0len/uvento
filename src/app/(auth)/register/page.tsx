@@ -57,6 +57,38 @@ export default function RegisterPage() {
             name="name"
             type="text"
             required
+            autoComplete="given-name"
+            minLength={2}
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+            {t.auth.lastName}
+          </label>
+          <input
+            id="lastName"
+            name="lastName"
+            type="text"
+            required
+            autoComplete="family-name"
+            minLength={2}
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
+            {t.auth.phone}
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            required
+            autoComplete="tel"
+            placeholder="+7 700 000 00 00"
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
           />
         </div>

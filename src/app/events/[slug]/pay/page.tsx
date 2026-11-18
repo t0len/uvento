@@ -49,6 +49,9 @@ export default async function PayPage({
         paymentId={pendingPayment.id}
         reservedUntil={reservedUntil?.toISOString() ?? null}
         cancelled={payment === "cancelled"}
+        quantity={pendingPayment.quantity}
+        amount={event.price * pendingPayment.quantity}
+        unitPrice={event.price}
       />
     </div>
   );

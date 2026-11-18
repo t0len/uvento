@@ -33,7 +33,25 @@ export function CreateOrganizerForm({ organizations }: { organizations: { id: st
       <input
         name="name"
         required
-        placeholder={t.common.user}
+        minLength={2}
+        autoComplete="given-name"
+        placeholder={t.auth.name}
+        className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500"
+      />
+      <input
+        name="lastName"
+        required
+        minLength={2}
+        autoComplete="family-name"
+        placeholder={t.auth.lastName}
+        className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500"
+      />
+      <input
+        name="phone"
+        type="tel"
+        required
+        autoComplete="tel"
+        placeholder={t.auth.phone}
         className="rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500"
       />
       <input

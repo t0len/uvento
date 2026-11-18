@@ -7,6 +7,7 @@ import { formatEventDate } from "@/lib/format";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
 import { displayPayment } from "@/lib/payments";
+import { personName } from "@/lib/person";
 import { ConfirmPaymentButton } from "./confirm-payment-button";
 import { RemoveParticipantButton, RestoreParticipantButton } from "./remove-participant-button";
 
@@ -39,7 +40,7 @@ export default async function DashboardRegistrationsPage({
       ? await prisma.registration.findMany({
           where: registrationWhere(orgIds, filters),
         include: {
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, lastName: true, phone: true, email: true } },
           event: { select: { title: true, slug: true, price: true } },
           payments: { select: { status: true, amount: true, createdAt: true } },
           tickets: { select: { checkedInAt: true } },
@@ -151,11 +152,12 @@ export default async function DashboardRegistrationsPage({
                 <tr key={reg.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900">
-                      {reg.user.name}
+                      {personName(reg.user)}
                       {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
                         <span className="ml-2 text-xs font-normal text-gray-500">×{reg.quantity}</span>
                       ) : null}
                     </p>
+                    {reg.user.phone ? <p className="text-xs text-gray-700">{reg.user.phone}</p> : null}
                     <p className="text-xs text-gray-500">{reg.user.email}</p>
                   </td>
                   <td className="px-4 py-3 text-gray-700">{reg.event.title}</td>

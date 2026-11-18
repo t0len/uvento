@@ -3,6 +3,7 @@ import { getI18n } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
 import { displayPayment } from "@/lib/payments";
+import { personName } from "@/lib/person";
 import { filterQuery, registrationWhere } from "@/lib/registration-filters";
 
 function cell(value: string) {
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
       ? await prisma.registration.findMany({
           where: registrationWhere(orgIds, filters),
         include: {
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, lastName: true, phone: true, email: true } },
           event: { select: { title: true } },
           payments: { select: { status: true, createdAt: true } },
         },
@@ -37,9 +38,10 @@ export async function GET(request: Request) {
       })
     : [];
 
-  const header = [t.dashboard.attendee, t.dashboard.email, t.dashboard.events, t.dashboard.date, t.dashboard.status, t.dashboard.payment];
+  const header = [t.dashboard.attendee, t.common.phone, t.dashboard.email, t.dashboard.events, t.dashboard.date, t.dashboard.status, t.dashboard.payment];
   const rows = registrations.map((reg) => [
-    reg.user.name,
+    personName(reg.user),
+    reg.user.phone ?? "",
     reg.user.email,
     reg.event.title,
     reg.createdAt.toISOString().slice(0, 10),

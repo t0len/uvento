@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { prisma } from "@/lib/prisma";
 import { getI18n } from "@/lib/i18n";
 import { AddMemberForm, CreateOrgForm, RemoveMemberButton } from "./org-controls";
@@ -12,7 +13,7 @@ export default async function AdminOrganizationsPage() {
     include: {
       members: {
         include: {
-          user: { select: { id: true, name: true, email: true, role: true } },
+          user: { select: { id: true, name: true, lastName: true, phone: true, email: true, role: true } },
         },
       },
       _count: { select: { events: true } },
@@ -68,7 +69,8 @@ export default async function AdminOrganizationsPage() {
                         key={m.id}
                         className="flex flex-wrap items-center gap-2 text-sm text-gray-700"
                       >
-                        <span className="font-medium">{m.user.name}</span>
+                        <span className="font-medium">{personName(m.user)}</span>
+                        {m.user.phone ? <span className="text-gray-500">{m.user.phone}</span> : null}
                         <span className="text-gray-400">{m.user.email}</span>
                         <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
                           {m.role}

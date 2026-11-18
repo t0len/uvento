@@ -5,11 +5,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { releaseExpiredReservations, reservationDeadline } from "@/lib/reservations";
 import { occupiedSeatCount } from "@/lib/seats";
-import { createCheckoutUrl } from "@/lib/stripe-checkout";
-import { syncTicketPasses, ticketQuantity } from "@/lib/tickets";
+import { createCheckoutUrl, expireOpenCheckout } from "@/lib/stripe-checkout";
+import { holdersForPass, parseHolders, syncTicketPasses, ticketQuantity, type TicketHolder } from "@/lib/tickets";
+import { normalizePhone } from "@/lib/person";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { revalidatePath } from "next/cache";
+
+const bookingTransaction = { timeout: 15_000 };
 
 async function say(code: string) {
   const { t } = await getI18n();
@@ -19,9 +22,22 @@ async function say(code: string) {
 function revalidateRegistration(slug: string) {
   revalidatePath(`/events/${slug}`);
   revalidatePath("/my/tickets");
-  revalidatePath("/my/events");
   revalidatePath("/dashboard/registrations");
   revalidatePath("/dashboard");
+}
+
+function selfHolder(user: { name: string; lastName: string; phone: string | null }): TicketHolder[] {
+  return [
+    {
+      name: user.name.trim(),
+      lastName: user.lastName.trim(),
+      phone: user.phone ? (normalizePhone(user.phone) ?? "") : "",
+    },
+  ];
+}
+
+function holderJson(holders: TicketHolder[] | null): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  return holders ?? Prisma.DbNull;
 }
 
 async function organizerCanManage(
@@ -39,7 +55,7 @@ async function organizerCanManage(
   return Boolean(membership);
 }
 
-export async function registerForEvent(eventId: string, requestedQuantity = 1) {
+export async function registerForEvent(eventId: string, requestedQuantity = 1, rawHolders?: unknown) {
   const user = await requireAuth();
 
   try {
@@ -59,6 +75,9 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
 
       const quantity = ticketQuantity(requestedQuantity);
       if (quantity == null) return { error: "ticketCount" as const };
+      const named = quantity > 1 ? parseHolders(quantity, rawHolders) : { holders: selfHolder(user) };
+      if ("error" in named) return { error: named.error as "holdersRequired" };
+      const holders = named.holders;
 
       await releaseExpiredReservations(tx, eventId);
       const taken = await occupiedSeatCount(tx, eventId);
@@ -88,6 +107,7 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
           reservedUntil: null,
           paymentId: null,
           quantity: saved.quantity,
+          staleCheckoutId: null,
         };
       }
 
@@ -106,9 +126,10 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
         : await tx.registration.create({
             data: { userId: user.id, eventId, status, reservedUntil, quantity },
           });
-      await syncTicketPasses(tx, saved);
+      await syncTicketPasses(tx, saved, { holders });
 
       let paymentId: string | null = null;
+      let staleCheckoutId: string | null = null;
       if (paid) {
         const payment =
           existing?.payments.find((item) => item.status !== "COMPLETED") ?? existing?.payments[0] ?? null;
@@ -125,6 +146,7 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
           });
           paymentId = created.id;
         } else {
+          staleCheckoutId = payment.externalId;
           const updated = await tx.payment.update({
             where: { id: payment.id },
             data: {
@@ -149,11 +171,13 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
         reservedUntil: reservedUntil?.toISOString() ?? null,
         paymentId,
         quantity: saved.quantity,
+        staleCheckoutId,
       };
-    });
+    }, bookingTransaction);
 
     if ("error" in result && result.error) return { error: await say(result.error) };
 
+    await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
     return {
       success: true as const,
@@ -167,11 +191,12 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { error: await say("alreadyRegistered") };
     }
-    throw error;
+    console.error("registerForEvent", error);
+    return { error: await say("bookingFailed") };
   }
 }
 
-export async function addTickets(eventId: string, requestedExtra = 1) {
+export async function addTickets(eventId: string, requestedExtra = 1, rawHolders?: unknown) {
   const user = await requireAuth();
 
   try {
@@ -189,6 +214,9 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
 
       const extra = ticketQuantity(requestedExtra);
       if (extra == null) return { error: "ticketCount" as const };
+      const named = extra > 1 ? parseHolders(extra, rawHolders) : null;
+      if (named && "error" in named) return { error: named.error as "holdersRequired" };
+      const holders = named && "holders" in named ? named.holders : null;
 
       await releaseExpiredReservations(tx, eventId);
       const existing = await tx.registration.findUnique({
@@ -204,7 +232,7 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
       const openAddon = existing.payments.find(
         (payment) => payment.status === "PENDING" && payment.reservedUntil && payment.reservedUntil > new Date(),
       );
-      if (openAddon) {
+      if (openAddon && openAddon.quantity === extra && openAddon.amount === event.price * extra) {
         return {
           success: true as const,
           status: "PENDING" as const,
@@ -212,6 +240,35 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
           paymentId: openAddon.id,
           slug: event.slug,
           reservedUntil: openAddon.reservedUntil?.toISOString() ?? null,
+          staleCheckoutId: null,
+        };
+      }
+      if (openAddon) {
+        const takenNow = await occupiedSeatCount(tx, eventId);
+        const delta = extra - openAddon.quantity;
+        if (event.capacity == null || takenNow + delta > event.capacity) {
+          return { error: "notEnoughSeats" as const };
+        }
+        const reservedUntil = reservationDeadline();
+        await tx.payment.update({
+          where: { id: openAddon.id },
+          data: {
+            amount: event.price * extra,
+            quantity: extra,
+            method: null,
+            externalId: null,
+            reservedUntil,
+            holders: holderJson(holders),
+          },
+        });
+        return {
+          success: true as const,
+          status: "PENDING" as const,
+          registrationId: existing.id,
+          paymentId: openAddon.id,
+          slug: event.slug,
+          reservedUntil: reservedUntil.toISOString(),
+          staleCheckoutId: openAddon.externalId,
         };
       }
 
@@ -224,7 +281,7 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
           where: { id: existing.id },
           data: { quantity: existing.quantity + extra },
         });
-        await syncTicketPasses(tx, saved);
+        await syncTicketPasses(tx, saved, holders ? { holders, startPosition: existing.quantity + 1 } : undefined);
         return {
           success: true as const,
           status: existing.status,
@@ -233,6 +290,7 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
           slug: event.slug,
           reservedUntil: null,
           quantity: saved.quantity,
+          staleCheckoutId: null,
         };
       }
 
@@ -245,6 +303,7 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
           quantity: extra,
           status: "PENDING",
           reservedUntil,
+          holders: holderJson(holders),
         },
       });
       return {
@@ -255,10 +314,12 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
         slug: event.slug,
         reservedUntil: reservedUntil.toISOString(),
         quantity: existing.quantity,
+        staleCheckoutId: null,
       };
-    });
+    }, bookingTransaction);
 
     if ("error" in result && result.error) return { error: await say(result.error) };
+    await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
     return {
       success: true as const,
@@ -272,7 +333,8 @@ export async function addTickets(eventId: string, requestedExtra = 1) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
       return { error: await say("alreadyRegistered") };
     }
-    throw error;
+    console.error("addTickets", error);
+    return { error: await say("bookingFailed") };
   }
 }
 
@@ -448,7 +510,12 @@ export async function confirmPayment(registrationId: string) {
         where: { id: registrationId },
         data: { quantity: { increment: pendingPayment.quantity } },
       });
-      await syncTicketPasses(tx, saved);
+      const named = holdersForPass(pendingPayment.holders, pendingPayment.quantity);
+      await syncTicketPasses(
+        tx,
+        saved,
+        named ? { holders: named, startPosition: registration.quantity + 1 } : undefined,
+      );
       return true;
     }
     const saved = await tx.registration.update({

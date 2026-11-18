@@ -8,7 +8,7 @@ import { QrScanner } from "./qr-scanner";
 type CheckInResult = {
   success?: boolean;
   error?: string;
-  attendee?: { name: string; email: string; event: string; seatLabel?: string | null };
+  attendee?: { name: string; email: string; phone?: string | null; event: string; seatLabel?: string | null };
 };
 
 export function CheckInForm({ events }: { events: { id: string; label: string }[] }) {
@@ -81,6 +81,7 @@ export function CheckInForm({ events }: { events: { id: string; label: string }[
                 {result.attendee.name} — {result.attendee.event}
               </p>
               <p className="text-xs text-green-600">{result.attendee.email}</p>
+              {result.attendee.phone ? <p className="text-xs text-green-700">{result.attendee.phone}</p> : null}
               {result.attendee.seatLabel ? (
                 <p className="text-sm text-green-700">{result.attendee.seatLabel}</p>
               ) : null}

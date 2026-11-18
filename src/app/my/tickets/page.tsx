@@ -71,6 +71,8 @@ export default async function MyTicketsPage({
       passes: passLists[index].map((pass) => ({
         code: pass.code,
         position: pass.position,
+        holderName: pass.holderName,
+        holderLastName: pass.holderLastName,
         checkedInAt: pass.checkedInAt?.toISOString() ?? null,
       })),
     };

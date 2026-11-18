@@ -1,4 +1,5 @@
 import { requireRole } from "@/lib/auth";
+import { personName } from "@/lib/person";
 import { prisma } from "@/lib/prisma";
 import { getI18n, tReplace } from "@/lib/i18n";
 import { RoleSelect } from "./role-select";
@@ -21,6 +22,8 @@ export default async function AdminUsersPage({
       ? {
           OR: [
             { name: { contains: query, mode: "insensitive" } },
+            { lastName: { contains: query, mode: "insensitive" } },
+            { phone: { contains: query, mode: "insensitive" } },
             { email: { contains: query, mode: "insensitive" } },
           ],
         }
@@ -80,7 +83,8 @@ export default async function AdminUsersPage({
               {users.map((u) => (
                 <tr key={u.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900">{u.name}</p>
+                    <p className="font-medium text-gray-900">{personName(u)}</p>
+                    {u.phone ? <p className="text-xs text-gray-700">{u.phone}</p> : null}
                     <p className="text-xs text-gray-500">{u.email}</p>
                     {u.blocked && <p className="text-xs font-medium text-red-600">{t.admin.blocked}</p>}
                   </td>

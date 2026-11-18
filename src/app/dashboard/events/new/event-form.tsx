@@ -5,6 +5,8 @@ import { createEvent, updateEvent } from "@/actions/events";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { categoryLabel } from "@/lib/categories";
 import { compressCover } from "@/lib/compress-cover";
+import { combineLocalDateTime } from "@/lib/format";
+import { EventPreview, type EventPreviewData } from "./event-preview";
 
 type Category = { id: string; name: string; slug: string };
 
@@ -31,16 +33,21 @@ export function EventForm({
   eventId,
   initial,
   organizations = [],
+  organizationName,
+  published = false,
 }: {
   categories: Category[];
   eventId?: string;
   initial?: EventFormValues;
   organizations?: { id: string; name: string }[];
+  organizationName?: string;
+  published?: boolean;
 }) {
   const { t } = useI18n();
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState(0);
   const [preview, setPreview] = useState<string | null>(initial?.coverImageUrl ?? null);
+  const [guestView, setGuestView] = useState<EventPreviewData | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
   const steps = [t.dashboard.stepBasics, t.dashboard.stepPlace, t.dashboard.stepTickets, t.dashboard.stepCover];
@@ -66,6 +73,37 @@ export function EventForm({
     }
     setStep((current) => Math.min(current + 1, steps.length - 1));
     formRef.current?.scrollIntoView({ block: "start" });
+  }
+
+  function openPreview() {
+    const form = formRef.current;
+    if (!form) return;
+    const data = new FormData(form);
+    const kind = String(data.get("participationType") || "FREE");
+    const participationType = kind === "OPEN" || kind === "PAID" ? kind : "FREE";
+    const date = String(data.get("date") || "");
+    const endDate = String(data.get("endDate") || date);
+    const startTime = String(data.get("startTime") || "");
+    const endTime = String(data.get("endTime") || "");
+    const orgId = String(data.get("organizationId") || "");
+    const capacityRaw = String(data.get("capacity") || "");
+    const capacity = capacityRaw === "" ? null : Number(capacityRaw);
+    const selected = new Set(data.getAll("categoryIds").map(String));
+    setGuestView({
+      title: String(data.get("title") || ""),
+      description: String(data.get("description") || ""),
+      location: String(data.get("location") || ""),
+      venue: String(data.get("venue") || ""),
+      start: date ? new Date(combineLocalDateTime(date, startTime || "00:00")) : null,
+      end: endDate ? new Date(combineLocalDateTime(endDate, endTime || "00:00")) : null,
+      capacity: capacity != null && Number.isFinite(capacity) ? capacity : null,
+      price: Number(data.get("price") || 0),
+      participationType,
+      categories: categories.filter((category) => selected.has(category.id)),
+      cover: preview,
+      organizationName: organizations.find((org) => org.id === orgId)?.name ?? organizationName ?? "",
+      hasTime: Boolean(startTime && endTime),
+    });
   }
 
   async function applyCover(file: File | undefined) {
@@ -412,6 +450,26 @@ export function EventForm({
             {t.dashboard.stepNext}
           </button>
         ) : null}
+        {!eventId ? (
+          <button
+            type="submit"
+            name="intent"
+            value="draft"
+            disabled={isPending || compressing}
+            className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+          >
+            {t.dashboard.saveDraft}
+          </button>
+        ) : null}
+        {step === steps.length - 1 ? (
+          <button
+            type="button"
+            onClick={openPreview}
+            className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50"
+          >
+            {t.dashboard.preview}
+          </button>
+        ) : null}
         {eventId ? (
           <button
             type="submit"
@@ -420,31 +478,21 @@ export function EventForm({
           >
             {isPending ? t.dashboard.formCreating : t.dashboard.saveChanges}
           </button>
-        ) : (
-          <>
-            <button
-              type="submit"
-              name="intent"
-              value="draft"
-              disabled={isPending || compressing}
-              className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
-            >
-              {t.dashboard.saveDraft}
-            </button>
-            {step === steps.length - 1 ? (
-              <button
-                type="submit"
-                name="intent"
-                value="publish"
-                disabled={isPending || compressing}
-                className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-              >
-                {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
-              </button>
-            ) : null}
-          </>
-        )}
+        ) : step === steps.length - 1 ? (
+          <button
+            type="submit"
+            name="intent"
+            value="publish"
+            disabled={isPending || compressing}
+            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          >
+            {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
+          </button>
+        ) : null}
       </div>
+      {guestView ? (
+        <EventPreview event={guestView} published={published} onClose={() => setGuestView(null)} />
+      ) : null}
     </form>
   );
 }

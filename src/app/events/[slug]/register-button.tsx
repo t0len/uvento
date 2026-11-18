@@ -6,6 +6,13 @@ import { addTickets, cancelRegistration, registerForEvent } from "@/actions/regi
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
+import { HolderForm, type HolderDraft } from "./holder-form";
+
+function clampCount(value: number, max: number | null) {
+  const whole = Number.isInteger(value) && value > 0 ? value : 1;
+  if (max == null) return whole;
+  return Math.min(whole, Math.max(max, 1));
+}
 
 export function RegisterButton({
   eventId,
@@ -18,9 +25,11 @@ export function RegisterButton({
   isFull,
   spotsLeft,
   existingQuantity,
+  initialQuantity = 1,
   participationType,
   slug,
   hasPendingPayment,
+  buyer = null,
 }: {
   eventId: string;
   price: number;
@@ -32,9 +41,11 @@ export function RegisterButton({
   isFull: boolean;
   spotsLeft: number | null;
   existingQuantity: number;
+  initialQuantity?: number;
   participationType: "OPEN" | "FREE" | "PAID";
   slug: string;
   hasPendingPayment: boolean;
+  buyer?: HolderDraft | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -47,12 +58,63 @@ export function RegisterButton({
   const booked = status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
   const buyingMore = status === "CONFIRMED" || status === "CHECKED_IN";
   const max = spotsLeft == null ? null : Math.max(spotsLeft, 0);
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(() => clampCount(initialQuantity, max));
+  const [collecting, setCollecting] = useState(false);
   const hasRoom = max == null || max > 0;
   const showStepper = participationType !== "OPEN" && !isPast && !isCancelled && (!booked || (buyingMore && !pendingPayment && hasRoom));
   const totalLabel = formatKzt(price * (showStepper ? quantity : booked ? owned : quantity), t.common.free, locale);
   const canAdd = showStepper && (max == null || quantity < max);
   const canRemove = showStepper && quantity > 1;
+
+  function rememberQuantity(next: number) {
+    const clamped = clampCount(next, max);
+    setQuantity(clamped);
+    if (clamped <= 1) setCollecting(false);
+    const url = new URL(window.location.href);
+    if (clamped <= 1) url.searchParams.delete("tickets");
+    else url.searchParams.set("tickets", String(clamped));
+    window.history.replaceState(window.history.state, "", url);
+  }
+
+  function placeNew(holders?: HolderDraft[]) {
+    startTransition(async () => {
+      setError(null);
+      const res = await registerForEvent(eventId, quantity, holders);
+      if (res?.error) setError(res.error);
+      else if (res?.success) {
+        setCollecting(false);
+        setStatus(res.status);
+        setCurrentRegistrationId(res.registrationId);
+        setOwned(res.quantity ?? quantity);
+        rememberQuantity(1);
+        if (res.status === "PENDING") {
+          setPendingPayment(true);
+          router.push(`/events/${slug}/pay`);
+        } else {
+          router.refresh();
+        }
+      }
+    });
+  }
+
+  function placeExtra(holders?: HolderDraft[]) {
+    startTransition(async () => {
+      setError(null);
+      const res = await addTickets(eventId, quantity, holders);
+      if (res?.error) setError(res.error);
+      else if (res?.success) {
+        setCollecting(false);
+        if (res.status === "PENDING") {
+          setPendingPayment(true);
+          router.push(`/events/${slug}/pay`);
+        } else {
+          setOwned(res.quantity ?? owned + quantity);
+          rememberQuantity(1);
+          router.refresh();
+        }
+      }
+    });
+  }
 
   const ticketRow = (
     <div className="rounded-xl border border-gray-200 bg-white p-4">
@@ -77,7 +139,7 @@ export function RegisterButton({
                 type="button"
                 aria-label={t.eventDetail.removeTicket}
                 disabled={!canRemove}
-                onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                onClick={() => rememberQuantity(quantity - 1)}
                 className="px-3 py-2 text-base leading-none text-gray-800 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
               >
                 −
@@ -87,7 +149,7 @@ export function RegisterButton({
                 type="button"
                 aria-label={t.eventDetail.addTicket}
                 disabled={!canAdd}
-                onClick={() => setQuantity((current) => (max == null ? current + 1 : Math.min(max, current + 1)))}
+                onClick={() => rememberQuantity(quantity + 1)}
                 className="px-3 py-2 text-base leading-none text-gray-900 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
               >
                 +
@@ -125,23 +187,7 @@ export function RegisterButton({
     action = (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <button
-          onClick={() => {
-            startTransition(async () => {
-              setError(null);
-              const res = await addTickets(eventId, quantity);
-              if (res?.error) setError(res.error);
-              else if (res?.success) {
-                if (res.status === "PENDING") {
-                  setPendingPayment(true);
-                  router.push(`/events/${slug}/pay`);
-                } else {
-                  setOwned(res.quantity ?? owned + quantity);
-                  setQuantity(1);
-                  router.refresh();
-                }
-              }
-            });
-          }}
+          onClick={() => (quantity > 1 ? setCollecting(true) : placeExtra())}
           disabled={isPending}
           className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
@@ -199,25 +245,7 @@ export function RegisterButton({
   } else {
     action = (
       <button
-        onClick={() => {
-          startTransition(async () => {
-            setError(null);
-            const res = await registerForEvent(eventId, quantity);
-            if (res?.error) setError(res.error);
-            else if (res?.success) {
-              setStatus(res.status);
-              setCurrentRegistrationId(res.registrationId);
-              setOwned(res.quantity ?? quantity);
-              setQuantity(1);
-              if (res.status === "PENDING") {
-                setPendingPayment(true);
-                router.push(`/events/${slug}/pay`);
-              } else {
-                router.refresh();
-              }
-            }
-          });
-        }}
+        onClick={() => (quantity > 1 ? setCollecting(true) : placeNew())}
         disabled={isPending || isFull}
         className="mt-4 w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
       >
@@ -229,7 +257,20 @@ export function RegisterButton({
   return (
     <div>
       {ticketRow}
-      {action}
+      {collecting && quantity > 1 ? (
+        <HolderForm
+          key={`${buyingMore ? "more" : "new"}-${quantity}`}
+          count={quantity}
+          buyer={buyer}
+          prefillBuyer={!buyingMore}
+          pending={isPending}
+          submitLabel={buyingMore ? t.eventDetail.buyMore : t.eventDetail.book}
+          onCancel={() => setCollecting(false)}
+          onSubmit={(holders) => (buyingMore ? placeExtra(holders) : placeNew(holders))}
+        />
+      ) : (
+        action
+      )}
       {(status === "PENDING" || pendingPayment) && currentRegistrationId ? (
         <Link
           href={`/events/${slug}/pay`}

@@ -72,7 +72,6 @@ export function UserMenu({
           {role === "STUDENT" && (
             <div className="px-1 py-1">
               <MenuLink href="/my/tickets" onClick={() => setOpen(false)} label={t.menu.myTickets} />
-              <MenuLink href="/my/events" onClick={() => setOpen(false)} label={t.menu.myEvents} />
               <MenuLink href="/my/settings" onClick={() => setOpen(false)} label={t.menu.settings} />
             </div>
           )}

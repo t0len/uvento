@@ -5,18 +5,24 @@ import { useRouter } from "next/navigation";
 import { startStripeCheckout } from "@/actions/registrations";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { localeDate } from "@/lib/i18n/config";
-import { formatEventTime } from "@/lib/format";
+import { countTickets, formatEventTime, formatKzt } from "@/lib/format";
 
 export function PayScreen({
   registrationId,
   paymentId,
   reservedUntil,
   cancelled,
+  quantity,
+  amount,
+  unitPrice,
 }: {
   registrationId: string;
   paymentId: string;
   reservedUntil: string | null;
   cancelled: boolean;
+  quantity: number;
+  amount: number;
+  unitPrice: number;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -31,6 +37,16 @@ export function PayScreen({
       <h1 className="max-w-xl text-3xl font-semibold tracking-tight text-gray-900 sm:text-5xl">
         {t.myTickets.payHint}
       </h1>
+      <p className="mt-6 text-3xl font-semibold tabular-nums text-gray-900">
+        {formatKzt(amount, t.common.free, locale)}
+      </p>
+      {quantity > 1 ? (
+        <p className="mt-2 text-sm text-gray-500">
+          {countTickets(quantity, locale)} · {formatKzt(unitPrice, t.common.free, locale)} × {quantity}
+        </p>
+      ) : (
+        <p className="mt-2 text-sm text-gray-500">{countTickets(quantity, locale)}</p>
+      )}
       {heldUntil ? (
         <p className="mt-6 text-lg text-gray-600">
           {t.eventDetail.reservedUntil.replace("{time}", heldUntil)}

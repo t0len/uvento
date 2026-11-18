@@ -27,6 +27,8 @@ export function registrationWhere(organizationIds: string[], filters: Registrati
     where.user = {
       OR: [
         { name: { contains: q, mode: "insensitive" } },
+        { lastName: { contains: q, mode: "insensitive" } },
+        { phone: { contains: q, mode: "insensitive" } },
         { email: { contains: q, mode: "insensitive" } },
       ],
     };

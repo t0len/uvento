@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate, formatKzt } from "@/lib/format";
 import { completedRevenue, displayPayment } from "@/lib/payments";
+import { personName } from "@/lib/person";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { EventActions } from "./event-actions";
 
@@ -25,7 +26,7 @@ export default async function DashboardEventDetailPage({
       categories: { include: { category: true } },
       registrations: {
         include: {
-          user: { select: { name: true, email: true } },
+          user: { select: { name: true, lastName: true, phone: true, email: true } },
           payments: { select: { status: true, amount: true, quantity: true, reservedUntil: true, createdAt: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -84,7 +85,6 @@ export default async function DashboardEventDetailPage({
         <EventActions
           eventId={event.id}
           status={event.status}
-          slug={event.slug}
           canDelete={event.status === "DRAFT" || heldSeats === 0}
         />
       </div>
@@ -143,10 +143,11 @@ export default async function DashboardEventDetailPage({
                   {event.registrations.map((reg) => (
                     <tr key={reg.id}>
                       <td className="px-4 py-2 text-gray-900">
-                        {reg.user.name}
+                        {personName(reg.user)}
                         {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
                           <span className="ml-2 text-xs text-gray-500">×{reg.quantity}</span>
                         ) : null}
+                        {reg.user.phone ? <p className="text-xs text-gray-500">{reg.user.phone}</p> : null}
                       </td>
                       <td className="hidden px-4 py-2 text-gray-500 sm:table-cell">{reg.user.email}</td>
                       <td className="px-4 py-2">
