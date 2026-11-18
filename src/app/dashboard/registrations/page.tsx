@@ -125,6 +125,21 @@ export default async function DashboardRegistrationsPage({
         </button>
       </form>
 
+      <ul className="mt-3 flex flex-wrap gap-2 text-xs">
+        <li className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-green-800">
+          <span className="h-1.5 w-1.5 rounded-full bg-green-600" aria-hidden />
+          {t.dashboard.confirmPaymentHint}
+        </li>
+        <li className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-red-700">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden />
+          {t.dashboard.removeParticipantHint}
+        </li>
+        <li className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-600">
+          <span className="h-1.5 w-1.5 rounded-full bg-gray-400" aria-hidden />
+          {t.dashboard.restoreParticipantHint}
+        </li>
+      </ul>
+
       {registrations.length === 0 ? (
         <div className="mt-12 text-center text-gray-500">
           {filtering ? t.dashboard.noFilterResults : t.dashboard.noRegistrations}

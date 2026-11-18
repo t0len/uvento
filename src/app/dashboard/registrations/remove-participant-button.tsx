@@ -16,6 +16,7 @@ export function RemoveParticipantButton({ registrationId }: { registrationId: st
       <button
         type="button"
         disabled={isPending}
+        title={t.dashboard.removeParticipantHint}
         onClick={() => {
           if (!window.confirm(t.dashboard.removeParticipantConfirm)) return;
           setError(null);
@@ -45,6 +46,7 @@ export function RestoreParticipantButton({ registrationId }: { registrationId: s
       <button
         type="button"
         disabled={isPending}
+        title={t.dashboard.restoreParticipantHint}
         onClick={() => {
           setError(null);
           startTransition(async () => {

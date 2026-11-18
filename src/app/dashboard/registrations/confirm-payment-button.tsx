@@ -30,6 +30,7 @@ export function ConfirmPaymentButton({ registrationId }: { registrationId: strin
           });
         }}
         disabled={isPending}
+        title={t.dashboard.confirmPaymentHint}
         className="rounded-md bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
       >
         {isPending ? "…" : t.dashboard.confirmPaymentFull}
