@@ -5,10 +5,22 @@ import { createEvent, updateEvent } from "@/actions/events";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { categoryLabel } from "@/lib/categories";
 import { compressCover } from "@/lib/compress-cover";
-import { combineLocalDateTime } from "@/lib/format";
+import { combineLocalDateTime, isClock } from "@/lib/format";
 import { EventPreview, type EventPreviewData } from "./event-preview";
 
 type Category = { id: string; name: string; slug: string };
+
+function digitsClock(raw: string) {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function clockProblem(value: string) {
+  if (!value) return null;
+  if (!isClock(value)) return value.length >= 5 ? ("invalid" as const) : ("partial" as const);
+  return null;
+}
 
 export type EventFormValues = {
   title: string;
@@ -46,11 +58,19 @@ export function EventForm({
   const { t } = useI18n();
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState(0);
+  const [startClock, setStartClock] = useState(initial?.startTime ?? "");
+  const [endClock, setEndClock] = useState(initial?.endTime ?? "");
+  const [clockTried, setClockTried] = useState(false);
   const [preview, setPreview] = useState<string | null>(initial?.coverImageUrl ?? null);
   const [guestView, setGuestView] = useState<EventPreviewData | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
   const [compressing, setCompressing] = useState(false);
   const steps = [t.dashboard.stepBasics, t.dashboard.stepPlace, t.dashboard.stepTickets, t.dashboard.stepCover];
+  const startProblem = clockProblem(startClock);
+  const endProblem = clockProblem(endClock);
+  const showStartClock = startProblem === "invalid" || (clockTried && Boolean(startProblem));
+  const showEndClock = endProblem === "invalid" || (clockTried && Boolean(endProblem));
+  const clockBlocked = showStartClock || showEndClock;
   const [state, formAction, isPending] = useActionState(
     async (_prev: { error?: string } | null, formData: FormData) => {
       const result = eventId ? await updateEvent(eventId, formData) : await createEvent(formData);
@@ -60,6 +80,10 @@ export function EventForm({
   );
 
   function goNext() {
+    if (step === 0 && (startProblem || endProblem)) {
+      setClockTried(true);
+      return;
+    }
     const panel = formRef.current?.querySelector(`[data-step="${step}"]`);
     const fields = panel?.querySelectorAll("input, textarea, select") ?? [];
     for (const field of fields) {
@@ -249,10 +273,18 @@ export function EventForm({
             <input
               id="startTime"
               name="startTime"
-              type="time"
-              defaultValue={initial?.startTime}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="09:00"
+              value={startClock}
+              aria-invalid={showStartClock}
+              onChange={(event) => setStartClock(digitsClock(event.target.value))}
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500 ${
+                showStartClock ? "border-red-400" : "border-gray-300"
+              }`}
             />
+            {showStartClock ? <p className="mt-1 text-sm text-red-600">{t.dashboard.timeInvalid}</p> : null}
           </div>
           <div>
             <label htmlFor="endTime" className="block text-sm font-medium text-gray-700">
@@ -261,10 +293,18 @@ export function EventForm({
             <input
               id="endTime"
               name="endTime"
-              type="time"
-              defaultValue={initial?.endTime}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="09:00"
+              value={endClock}
+              aria-invalid={showEndClock}
+              onChange={(event) => setEndClock(digitsClock(event.target.value))}
+              className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-500 ${
+                showEndClock ? "border-red-400" : "border-gray-300"
+              }`}
             />
+            {showEndClock ? <p className="mt-1 text-sm text-red-600">{t.dashboard.timeInvalid}</p> : null}
           </div>
         </div>
       </div>
@@ -445,7 +485,8 @@ export function EventForm({
           <button
             type="button"
             onClick={goNext}
-            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800"
+            disabled={clockBlocked}
+            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t.dashboard.stepNext}
           </button>
@@ -455,8 +496,8 @@ export function EventForm({
             type="submit"
             name="intent"
             value="draft"
-            disabled={isPending || compressing}
-            className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:opacity-50"
+            disabled={isPending || compressing || Boolean(startProblem || endProblem)}
+            className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-900 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {t.dashboard.saveDraft}
           </button>
@@ -473,8 +514,8 @@ export function EventForm({
         {eventId ? (
           <button
             type="submit"
-            disabled={isPending || compressing}
-            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            disabled={isPending || compressing || Boolean(startProblem || endProblem)}
+            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? t.dashboard.formCreating : t.dashboard.saveChanges}
           </button>
@@ -483,8 +524,8 @@ export function EventForm({
             type="submit"
             name="intent"
             value="publish"
-            disabled={isPending || compressing}
-            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            disabled={isPending || compressing || Boolean(startProblem || endProblem)}
+            className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isPending ? t.dashboard.formCreating : t.dashboard.publishEvent}
           </button>

@@ -196,6 +196,151 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1, r
   }
 }
 
+export async function updatePendingTickets(eventId: string, requestedQuantity = 1, rawHolders?: unknown) {
+  const user = await requireAuth();
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const locked = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM events WHERE id = ${eventId} FOR UPDATE
+      `;
+      if (locked.length === 0) return { error: "eventNotFound" as const };
+
+      const event = await tx.event.findUnique({ where: { id: eventId } });
+      if (!event) return { error: "eventNotFound" as const };
+      if (event.status !== "PUBLISHED") return { error: "registrationClosed" as const };
+      if (event.participationType === "OPEN") return { error: "openNoBooking" as const };
+      if (!event.endDate || event.endDate < new Date()) return { error: "eventEnded" as const };
+
+      const quantity = ticketQuantity(requestedQuantity);
+      if (quantity == null) return { error: "ticketCount" as const };
+
+      await releaseExpiredReservations(tx, eventId);
+      const existing = await tx.registration.findUnique({
+        where: { userId_eventId: { userId: user.id, eventId } },
+        include: { payments: { orderBy: { createdAt: "desc" as const } } },
+      });
+      if (!existing || existing.status === "CANCELLED") return { error: "noActiveHold" as const };
+      if (existing.status !== "PENDING") return { error: "paymentRecorded" as const };
+
+      const delta = quantity - existing.quantity;
+      let assignment: { holders: TicketHolder[]; startPosition?: number } | undefined;
+      if (quantity === 1) {
+        assignment = { holders: selfHolder(user) };
+      } else if (delta > 1) {
+        const named = parseHolders(delta, rawHolders);
+        if ("error" in named) return { error: named.error as "holdersRequired" };
+        assignment = { holders: named.holders, startPosition: existing.quantity + 1 };
+      }
+
+      const pending = existing.payments.find((item) => item.status === "PENDING");
+      if (delta === 0) {
+        return {
+          success: true as const,
+          status: "PENDING" as const,
+          registrationId: existing.id,
+          slug: event.slug,
+          reservedUntil: existing.reservedUntil?.toISOString() ?? null,
+          paymentId: pending?.id ?? null,
+          quantity: existing.quantity,
+          staleCheckoutId: null,
+        };
+      }
+
+      const taken = await occupiedSeatCount(tx, eventId);
+      if (delta > 0) {
+        if (event.capacity == null || taken >= event.capacity) return { error: "soldOut" as const };
+        if (taken + delta > event.capacity) return { error: "notEnoughSeats" as const };
+      }
+
+      if (event.participationType !== "PAID") {
+        const saved = await tx.registration.update({
+          where: { id: existing.id },
+          data: { quantity, status: "CONFIRMED", reservedUntil: null },
+        });
+        await syncTicketPasses(tx, saved, assignment);
+        return {
+          success: true as const,
+          status: "CONFIRMED" as const,
+          registrationId: saved.id,
+          slug: event.slug,
+          reservedUntil: null,
+          paymentId: null,
+          quantity: saved.quantity,
+          staleCheckoutId: null,
+        };
+      }
+
+      const reservedUntil = reservationDeadline();
+      const amount = event.price * quantity;
+      const saved = await tx.registration.update({
+        where: { id: existing.id },
+        data: { quantity, reservedUntil },
+      });
+      await syncTicketPasses(tx, saved, assignment);
+
+      const payment = pending ?? existing.payments.find((item) => item.status !== "COMPLETED") ?? null;
+      let paymentId: string | null = null;
+      let staleCheckoutId: string | null = null;
+      if (!payment) {
+        const created = await tx.payment.create({
+          data: {
+            registrationId: saved.id,
+            userId: user.id,
+            amount,
+            quantity,
+            status: "PENDING",
+            reservedUntil,
+          },
+        });
+        paymentId = created.id;
+      } else {
+        staleCheckoutId = payment.externalId;
+        const updated = await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "PENDING",
+            amount,
+            quantity,
+            paidAt: null,
+            method: null,
+            externalId: null,
+            reservedUntil,
+          },
+        });
+        paymentId = updated.id;
+      }
+
+      return {
+        success: true as const,
+        status: "PENDING" as const,
+        registrationId: saved.id,
+        slug: event.slug,
+        reservedUntil: reservedUntil.toISOString(),
+        paymentId,
+        quantity: saved.quantity,
+        staleCheckoutId,
+      };
+    }, bookingTransaction);
+
+    if ("error" in result && result.error) return { error: await say(result.error) };
+
+    await expireOpenCheckout(result.staleCheckoutId);
+    revalidateRegistration(result.slug);
+    return {
+      success: true as const,
+      status: result.status,
+      registrationId: result.registrationId,
+      reservedUntil: result.reservedUntil,
+      paymentId: result.paymentId,
+      quantity: result.quantity,
+    };
+  } catch (error) {
+    console.error("updatePendingTickets", error);
+    return { error: await say("bookingFailed") };
+  }
+}
+
 export async function addTickets(eventId: string, requestedExtra = 1, rawHolders?: unknown) {
   const user = await requireAuth();
 

@@ -7,6 +7,13 @@ export function reservationDeadline(from = new Date()) {
   return new Date(from.getTime() + RESERVATION_MINUTES * 60 * 1000);
 }
 
+export function forgetExpiredReservations(eventId?: string) {
+  return releaseExpiredReservations(prisma, eventId).catch((error: unknown) => {
+    console.error("releaseExpiredReservations", error instanceof Error ? error.message : error);
+    return 0;
+  });
+}
+
 export async function releaseExpiredReservations(
   db: Prisma.TransactionClient | PrismaClient = prisma,
   eventId?: string,

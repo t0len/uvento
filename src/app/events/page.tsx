@@ -3,17 +3,17 @@ import { Header } from "@/components/layout/header";
 import { getI18n } from "@/lib/i18n";
 import { categoryLabel } from "@/lib/categories";
 import { occupiedSeatsByEvent } from "@/lib/seats";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 import { EventCatalog, type CatalogEvent } from "./event-catalog";
 
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; type?: string; when?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; date?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const { locale, t } = await getI18n();
-  await releaseExpiredReservations();
+  await forgetExpiredReservations();
 
   const [events, categories] = await Promise.all([
     prisma.event.findMany({
@@ -35,6 +35,7 @@ export default async function EventsPage({
     coverImageUrl: event.coverImageUrl,
     location: event.location,
     startDate: event.startDate?.toISOString() ?? null,
+    endDate: event.endDate?.toISOString() ?? null,
     price: event.price,
     participationType: event.participationType,
     spotsLeft:
@@ -57,26 +58,22 @@ export default async function EventsPage({
         locale={locale === "en" ? "en-US" : locale === "kk" ? "kk-KZ" : "ru-RU"}
         initialQuery={params.q ?? ""}
         initialCategory={params.category ?? ""}
-        initialType={params.type ?? ""}
-        initialWhen={params.when ?? ""}
+        initialDate={/^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "") ? params.date ?? "" : ""}
         initialPage={Math.max(1, Number(params.page) || 1)}
         labels={{
           title: t.events.title,
           searchPlaceholder: t.events.searchPlaceholder,
           search: t.events.search,
           allCategories: t.events.allCategories,
-          allTypes: t.events.allTypes,
-          typeOpen: t.events.typeOpen,
-          typeFree: t.events.typeFree,
-          typePaid: t.events.typePaid,
           allDates: t.events.allDates,
-          thisWeek: t.events.thisWeek,
-          thisMonth: t.events.thisMonth,
           noResults: t.events.noResults,
           noUpcoming: t.events.noUpcoming,
           openEvent: t.events.openEvent,
           freeEvent: t.events.freeEvent,
           paidEvent: t.events.paidEvent,
+          kindOpen: t.events.kindOpen,
+          kindFree: t.events.kindFree,
+          kindPaid: t.events.kindPaid,
           free: t.events.free,
           prev: t.events.prev,
           next: t.events.next,

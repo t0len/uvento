@@ -6,7 +6,7 @@ import { Header } from "@/components/layout/header";
 import { EventCover } from "@/components/events/event-cover";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate, formatEventTime, formatKzt } from "@/lib/format";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 import { categoryLabel } from "@/lib/categories";
 import { occupiedSeats } from "@/lib/seats";
 import { RegisterButton } from "./register-button";
@@ -22,7 +22,7 @@ export default async function EventDetailPage({
   const { tickets } = await searchParams;
   const slug = decodeURIComponent(rawSlug);
   const { locale, t } = await getI18n();
-  await releaseExpiredReservations();
+  await forgetExpiredReservations();
 
   const event = await prisma.event.findUnique({
     where: { slug },

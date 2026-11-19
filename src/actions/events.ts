@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { canCreateEvent, canEditEvent, canPublishEvent } from "@/lib/permissions";
 import { publishGaps, readEventForm } from "@/lib/participation";
 import { releaseExpiredReservations } from "@/lib/reservations";
-import { addHoursLocal, combineLocalDateTime } from "@/lib/format";
+import { addHoursLocal, combineLocalDateTime, isClock } from "@/lib/format";
 import { getI18n, type Dictionary } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { deleteEventImage, saveEventImage } from "@/lib/uploads";
@@ -38,6 +38,13 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, "");
 }
 
+function clockError(formData: FormData) {
+  const startTime = String(formData.get("startTime") || "");
+  const endTime = String(formData.get("endTime") || "");
+  if ((startTime && !isClock(startTime)) || (endTime && !isClock(endTime))) return "timeInvalid" as const;
+  return null;
+}
+
 function eventDates(formData: FormData) {
   const date = String(formData.get("date") || "");
   const endDay = String(formData.get("endDate") || "") || date;
@@ -67,6 +74,8 @@ export async function createEvent(formData: FormData) {
     return { error: explain(t, "noCreateRights") };
   }
 
+  const badClock = clockError(formData);
+  if (badClock) return { error: explain(t, badClock) };
   const dates = eventDates(formData);
   const parsed = readEventForm(formData, dates.startDate, dates.endDate);
   if ("error" in parsed) return { error: explain(t, parsed.error) };
@@ -152,6 +161,8 @@ export async function updateEvent(eventId: string, formData: FormData) {
     return { error: explain(t, "eventChanged") };
   }
 
+  const badClock = clockError(formData);
+  if (badClock) return { error: explain(t, badClock) };
   const dates = eventDates(formData);
   const parsed = readEventForm(formData, dates.startDate, dates.endDate);
   if ("error" in parsed) return { error: explain(t, parsed.error) };

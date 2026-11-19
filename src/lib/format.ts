@@ -36,6 +36,14 @@ export function dateTimeParts(value: Date | null | undefined) {
   };
 }
 
+export function isClock(value: string) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return false;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  return hour <= 23 && minute <= 59;
+}
+
 export function combineLocalDateTime(date: string, time: string) {
   const normalized = time.length === 5 ? `${time}:00` : time;
   return `${date}T${normalized}${ALMATY_OFFSET}`;

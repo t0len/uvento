@@ -4,12 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate } from "@/lib/format";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
 import { displayPayment } from "@/lib/payments";
 import { personName } from "@/lib/person";
-import { ConfirmPaymentButton } from "./confirm-payment-button";
-import { RemoveParticipantButton, RestoreParticipantButton } from "./remove-participant-button";
 
 const STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "CANCELLED"] as const;
 
@@ -18,7 +16,7 @@ export default async function DashboardRegistrationsPage({
 }: {
   searchParams: Promise<RegistrationFilters>;
 }) {
-  await releaseExpiredReservations();
+  await forgetExpiredReservations();
   const user = await requireRole("ORGANIZER");
   const filters = await searchParams;
   const { locale, t } = await getI18n();
@@ -41,7 +39,7 @@ export default async function DashboardRegistrationsPage({
           where: registrationWhere(orgIds, filters),
         include: {
           user: { select: { name: true, lastName: true, phone: true, email: true } },
-          event: { select: { title: true, slug: true, price: true } },
+          event: { select: { title: true } },
           payments: { select: { status: true, amount: true, createdAt: true } },
           tickets: { select: { checkedInAt: true } },
         },
@@ -125,21 +123,6 @@ export default async function DashboardRegistrationsPage({
         </button>
       </form>
 
-      <ul className="mt-3 flex flex-wrap gap-2 text-xs">
-        <li className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-1 text-green-800">
-          <span className="h-1.5 w-1.5 rounded-full bg-green-600" aria-hidden />
-          {t.dashboard.confirmPaymentHint}
-        </li>
-        <li className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-2.5 py-1 text-red-700">
-          <span className="h-1.5 w-1.5 rounded-full bg-red-500" aria-hidden />
-          {t.dashboard.removeParticipantHint}
-        </li>
-        <li className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-gray-600">
-          <span className="h-1.5 w-1.5 rounded-full bg-gray-400" aria-hidden />
-          {t.dashboard.restoreParticipantHint}
-        </li>
-      </ul>
-
       {registrations.length === 0 ? (
         <div className="mt-12 text-center text-gray-500">
           {filtering ? t.dashboard.noFilterResults : t.dashboard.noRegistrations}
@@ -159,7 +142,6 @@ export default async function DashboardRegistrationsPage({
                   {t.dashboard.payment}
                 </th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.attendance}</th>
-                <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -203,17 +185,6 @@ export default async function DashboardRegistrationsPage({
                       if (arrived >= reg.quantity) return t.dashboard.attended;
                       return `${arrived}/${reg.quantity}`;
                     })()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      {(reg.status === "PENDING" || reg.payments.some((payment) => payment.status === "PENDING")) &&
-                        reg.event.price > 0 && <ConfirmPaymentButton registrationId={reg.id} />}
-                      {reg.status === "CANCELLED" ? (
-                        <RestoreParticipantButton registrationId={reg.id} />
-                      ) : reg.status !== "CHECKED_IN" ? (
-                        <RemoveParticipantButton registrationId={reg.id} />
-                      ) : null}
-                    </div>
                   </td>
                 </tr>
               ))}

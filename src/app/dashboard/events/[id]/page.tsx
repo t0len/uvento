@@ -6,7 +6,7 @@ import { getI18n, localeDate } from "@/lib/i18n";
 import { formatEventDate, formatKzt } from "@/lib/format";
 import { completedRevenue, displayPayment } from "@/lib/payments";
 import { personName } from "@/lib/person";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 import { EventActions } from "./event-actions";
 
 export default async function DashboardEventDetailPage({
@@ -15,7 +15,7 @@ export default async function DashboardEventDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  await releaseExpiredReservations();
+  await forgetExpiredReservations();
   const user = await requireRole("ORGANIZER");
   const { locale, t } = await getI18n();
 

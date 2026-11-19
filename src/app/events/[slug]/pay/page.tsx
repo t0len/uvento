@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
 import { Header } from "@/components/layout/header";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 import { PayScreen } from "./pay-screen";
 
 export default async function PayPage({
@@ -20,7 +20,7 @@ export default async function PayPage({
   const event = await prisma.event.findUnique({ where: { slug } });
   if (!event || event.status === "DRAFT") notFound();
 
-  await releaseExpiredReservations(prisma, event.id);
+  await forgetExpiredReservations(event.id);
 
   const registration = await prisma.registration.findUnique({
     where: { userId_eventId: { userId: user.id, eventId: event.id } },

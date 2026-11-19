@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getI18n, localeDate } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { countTickets, formatEventDate } from "@/lib/format";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 import { fulfillCheckoutSession } from "@/lib/stripe-checkout";
 import { syncTicketPasses } from "@/lib/tickets";
 import { TicketList, type TicketItem } from "./ticket-list";
@@ -21,7 +21,7 @@ export default async function MyTicketsPage({
     const result = await fulfillCheckoutSession(sessionId, user.id);
     if ("error" in result && result.error) paymentNotice = errorText(t, result.error);
   }
-  await releaseExpiredReservations();
+  await forgetExpiredReservations();
 
   const registrations = await prisma.registration.findMany({
     where: { userId: user.id, status: { not: "CANCELLED" } },

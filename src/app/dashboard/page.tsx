@@ -6,13 +6,13 @@ import Link from "next/link";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { formatEventDate, formatKzt } from "@/lib/format";
 import { occupiedSeatsByEvent } from "@/lib/seats";
-import { releaseExpiredReservations } from "@/lib/reservations";
+import { forgetExpiredReservations } from "@/lib/reservations";
 
 export default async function DashboardPage() {
   const user = await requireRole("ORGANIZER");
   const { locale, t } = await getI18n();
 
-  await releaseExpiredReservations();
+  await forgetExpiredReservations();
   const organizations = await membershipOrganizations(user.id);
   const orgIds = organizations.map((org) => org.id);
   const hasOrgs = orgIds.length > 0;

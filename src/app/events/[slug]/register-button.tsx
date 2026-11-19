@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { addTickets, cancelRegistration, registerForEvent } from "@/actions/registrations";
+import { addTickets, cancelRegistration, registerForEvent, updatePendingTickets } from "@/actions/registrations";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
@@ -57,11 +57,29 @@ export function RegisterButton({
   const { locale, t } = useI18n();
   const booked = status === "CONFIRMED" || status === "PENDING" || status === "CHECKED_IN";
   const buyingMore = status === "CONFIRMED" || status === "CHECKED_IN";
-  const max = spotsLeft == null ? null : Math.max(spotsLeft, 0);
-  const [quantity, setQuantity] = useState(() => clampCount(initialQuantity, max));
+  const editingUnpaid = status === "PENDING" && participationType !== "OPEN" && !isPast && !isCancelled;
+  const additionalRoom = spotsLeft == null ? null : Math.max(spotsLeft, 0);
+  const max = editingUnpaid ? (additionalRoom == null ? null : owned + additionalRoom) : additionalRoom;
+  const [quantity, setQuantity] = useState(() =>
+    clampCount(
+      existingStatus === "PENDING" ? existingQuantity : initialQuantity,
+      existingStatus === "PENDING"
+        ? spotsLeft == null
+          ? null
+          : existingQuantity + Math.max(spotsLeft, 0)
+        : spotsLeft == null
+          ? null
+          : Math.max(spotsLeft, 0),
+    ),
+  );
   const [collecting, setCollecting] = useState(false);
-  const hasRoom = max == null || max > 0;
-  const showStepper = participationType !== "OPEN" && !isPast && !isCancelled && (!booked || (buyingMore && !pendingPayment && hasRoom));
+  const hasRoom = additionalRoom == null || additionalRoom > 0;
+  const showStepper =
+    participationType !== "OPEN" &&
+    !isPast &&
+    !isCancelled &&
+    (!booked || editingUnpaid || (buyingMore && !pendingPayment && hasRoom));
+  const holderCount = editingUnpaid ? Math.max(quantity - owned, 0) : quantity;
   const totalLabel = formatKzt(price * (showStepper ? quantity : booked ? owned : quantity), t.common.free, locale);
   const canAdd = showStepper && (max == null || quantity < max);
   const canRemove = showStepper && quantity > 1;
@@ -97,6 +115,39 @@ export function RegisterButton({
     });
   }
 
+  function placePending(holders?: HolderDraft[]) {
+    startTransition(async () => {
+      setError(null);
+      const res = await updatePendingTickets(eventId, quantity, holders);
+      if (res?.error) setError(res.error);
+      else if (res?.success) {
+        setCollecting(false);
+        setStatus(res.status);
+        setCurrentRegistrationId(res.registrationId);
+        setOwned(res.quantity ?? quantity);
+        if (res.status === "PENDING") {
+          setPendingPayment(true);
+          router.push(`/events/${slug}/pay`);
+        } else {
+          rememberQuantity(1);
+          router.refresh();
+        }
+      }
+    });
+  }
+
+  function continueUnpaid() {
+    if (quantity === owned) {
+      router.push(`/events/${slug}/pay`);
+      return;
+    }
+    if (quantity - owned > 1) {
+      setCollecting(true);
+      return;
+    }
+    placePending();
+  }
+
   function placeExtra(holders?: HolderDraft[]) {
     startTransition(async () => {
       setError(null);
@@ -122,7 +173,7 @@ export function RegisterButton({
         <div>
           <p className="font-medium text-gray-900">{t.eventDetail.standardTicket}</p>
           <p className="mt-1 text-sm text-gray-500">{t.eventDetail.ticketAccess}</p>
-          {booked && owned > 0 ? (
+          {booked && owned > 0 && !showStepper ? (
             <p className="mt-1 text-xs text-gray-400">{countTickets(owned, locale)}</p>
           ) : null}
           {price > 0 && showStepper && quantity > 1 ? (
@@ -181,6 +232,16 @@ export function RegisterButton({
         className="mt-4 w-full cursor-not-allowed rounded-lg bg-gray-300 px-6 py-3 text-sm font-medium text-gray-500"
       >
         {isCancelled ? t.status.CANCELLED : t.status.COMPLETED}
+      </button>
+    );
+  } else if (editingUnpaid) {
+    action = (
+      <button
+        onClick={continueUnpaid}
+        disabled={isPending}
+        className="mt-4 w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+      >
+        {isPending ? t.common.loading : t.myTickets.paySubmit}
       </button>
     );
   } else if (buyingMore && !pendingPayment && hasRoom) {
@@ -257,21 +318,25 @@ export function RegisterButton({
   return (
     <div>
       {ticketRow}
-      {collecting && quantity > 1 ? (
+      {collecting && holderCount > 1 ? (
         <HolderForm
-          key={`${buyingMore ? "more" : "new"}-${quantity}`}
-          count={quantity}
+          key={`${editingUnpaid ? "pending" : buyingMore ? "more" : "new"}-${holderCount}`}
+          count={holderCount}
           buyer={buyer}
-          prefillBuyer={!buyingMore}
+          prefillBuyer={!buyingMore && !editingUnpaid}
           pending={isPending}
-          submitLabel={buyingMore ? t.eventDetail.buyMore : t.eventDetail.book}
+          submitLabel={
+            editingUnpaid ? t.myTickets.paySubmit : buyingMore ? t.eventDetail.buyMore : t.eventDetail.book
+          }
           onCancel={() => setCollecting(false)}
-          onSubmit={(holders) => (buyingMore ? placeExtra(holders) : placeNew(holders))}
+          onSubmit={(holders) =>
+            editingUnpaid ? placePending(holders) : buyingMore ? placeExtra(holders) : placeNew(holders)
+          }
         />
       ) : (
         action
       )}
-      {(status === "PENDING" || pendingPayment) && currentRegistrationId ? (
+      {(status === "PENDING" || pendingPayment) && currentRegistrationId && !editingUnpaid ? (
         <Link
           href={`/events/${slug}/pay`}
           className="mt-4 inline-flex text-sm font-medium text-gray-900 underline"
