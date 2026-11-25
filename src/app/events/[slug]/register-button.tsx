@@ -74,6 +74,9 @@ export function RegisterButton({
   );
   const [collecting, setCollecting] = useState(false);
   const hasRoom = additionalRoom == null || additionalRoom > 0;
+  const freeEvent = participationType === "FREE";
+  const bookLabel = freeEvent ? t.eventDetail.bookFree : t.eventDetail.book;
+  const moreLabel = freeEvent ? t.eventDetail.buyMoreFree : t.eventDetail.buyMore;
   const showStepper =
     participationType !== "OPEN" &&
     !isPast &&
@@ -87,7 +90,6 @@ export function RegisterButton({
   function rememberQuantity(next: number) {
     const clamped = clampCount(next, max);
     setQuantity(clamped);
-    if (clamped <= 1) setCollecting(false);
     const url = new URL(window.location.href);
     if (clamped <= 1) url.searchParams.delete("tickets");
     else url.searchParams.set("tickets", String(clamped));
@@ -141,7 +143,7 @@ export function RegisterButton({
       router.push(`/events/${slug}/pay`);
       return;
     }
-    if (quantity - owned > 1) {
+    if (quantity > owned) {
       setCollecting(true);
       return;
     }
@@ -168,23 +170,20 @@ export function RegisterButton({
   }
 
   const ticketRow = (
-    <div className="rounded-xl border border-gray-200 bg-white p-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="font-medium text-gray-900">{t.eventDetail.standardTicket}</p>
-          <p className="mt-1 text-sm text-gray-500">{t.eventDetail.ticketAccess}</p>
+          <p className="text-lg font-semibold tabular-nums text-gray-900">{totalLabel}</p>
           {booked && owned > 0 && !showStepper ? (
-            <p className="mt-1 text-xs text-gray-400">{countTickets(owned, locale)}</p>
+            <p className="text-xs text-gray-400">{countTickets(owned, locale)}</p>
           ) : null}
           {price > 0 && showStepper && quantity > 1 ? (
-            <p className="mt-1 text-xs text-gray-400">
+            <p className="text-xs text-gray-400">
               {formatKzt(price, t.common.free, locale)} × {quantity}
             </p>
           ) : null}
         </div>
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold tabular-nums text-gray-900">{totalLabel}</span>
-          {showStepper ? (
+        {showStepper ? (
             <div className="flex items-center rounded-lg border border-gray-200 bg-white">
               <button
                 type="button"
@@ -206,8 +205,7 @@ export function RegisterButton({
                 +
               </button>
             </div>
-          ) : null}
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -222,7 +220,7 @@ export function RegisterButton({
         href="/login"
         className="mt-4 flex w-full items-center justify-center rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-950"
       >
-        {t.eventDetail.book}
+        {bookLabel}
       </Link>
     );
   } else if (isCancelled || isPast) {
@@ -248,11 +246,11 @@ export function RegisterButton({
     action = (
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
         <button
-          onClick={() => (quantity > 1 ? setCollecting(true) : placeExtra())}
+          onClick={() => setCollecting(true)}
           disabled={isPending}
           className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
         >
-          {isPending ? t.common.loading : t.eventDetail.buyMore}
+          {isPending ? t.common.loading : moreLabel}
         </button>
         {status !== "CHECKED_IN" && currentRegistrationId ? (
           <button
@@ -306,11 +304,11 @@ export function RegisterButton({
   } else {
     action = (
       <button
-        onClick={() => (quantity > 1 ? setCollecting(true) : placeNew())}
+        onClick={() => setCollecting(true)}
         disabled={isPending || isFull}
         className="mt-4 w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
       >
-        {isPending ? t.common.loading : isFull ? t.eventDetail.soldOut : t.eventDetail.book}
+        {isPending ? t.common.loading : isFull ? t.eventDetail.soldOut : bookLabel}
       </button>
     );
   }
@@ -318,16 +316,13 @@ export function RegisterButton({
   return (
     <div>
       {ticketRow}
-      {collecting && holderCount > 1 ? (
+      {collecting && holderCount >= 1 ? (
         <HolderForm
-          key={`${editingUnpaid ? "pending" : buyingMore ? "more" : "new"}-${holderCount}`}
+          key={editingUnpaid ? "pending" : buyingMore ? "more" : "new"}
           count={holderCount}
           buyer={buyer}
-          prefillBuyer={!buyingMore && !editingUnpaid}
           pending={isPending}
-          submitLabel={
-            editingUnpaid ? t.myTickets.paySubmit : buyingMore ? t.eventDetail.buyMore : t.eventDetail.book
-          }
+          submitLabel={editingUnpaid ? t.myTickets.paySubmit : buyingMore ? moreLabel : bookLabel}
           onCancel={() => setCollecting(false)}
           onSubmit={(holders) =>
             editingUnpaid ? placePending(holders) : buyingMore ? placeExtra(holders) : placeNew(holders)

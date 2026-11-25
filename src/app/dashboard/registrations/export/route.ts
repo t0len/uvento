@@ -5,11 +5,7 @@ import { membershipOrganizations } from "@/lib/organizations";
 import { displayPayment } from "@/lib/payments";
 import { personName } from "@/lib/person";
 import { filterQuery, registrationWhere } from "@/lib/registration-filters";
-
-function cell(value: string) {
-  const safe = /^[=+\-@]/.test(value) ? `'${value}` : value;
-  return `"${safe.replaceAll('"', '""')}"`;
-}
+import { workbookFile } from "@/lib/xlsx-file";
 
 export async function GET(request: Request) {
   const user = await requireRole("ORGANIZER");
@@ -29,16 +25,24 @@ export async function GET(request: Request) {
     orgIds.length > 0
       ? await prisma.registration.findMany({
           where: registrationWhere(orgIds, filters),
-        include: {
-          user: { select: { name: true, lastName: true, phone: true, email: true } },
-          event: { select: { title: true } },
-          payments: { select: { status: true, createdAt: true } },
-        },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
+          include: {
+            user: { select: { name: true, lastName: true, phone: true, email: true } },
+            event: { select: { title: true } },
+            payments: { select: { status: true, createdAt: true } },
+          },
+          orderBy: { createdAt: "desc" },
+        })
+      : [];
 
-  const header = [t.dashboard.attendee, t.common.phone, t.dashboard.email, t.dashboard.events, t.dashboard.date, t.dashboard.status, t.dashboard.payment];
+  const header = [
+    t.dashboard.attendee,
+    t.common.phone,
+    t.dashboard.email,
+    t.dashboard.events,
+    t.dashboard.date,
+    t.dashboard.status,
+    t.dashboard.payment,
+  ];
   const rows = registrations.map((reg) => [
     personName(reg.user),
     reg.user.phone ?? "",
@@ -51,12 +55,12 @@ export async function GET(request: Request) {
       return payment ? t.payment[payment.status as keyof typeof t.payment] || payment.status : t.payment.none;
     })(),
   ]);
-  const csv = [header, ...rows].map((row) => row.map(cell).join(",")).join("\n");
-  const filename = filterQuery(filters).toString() ? "participants-filtered.csv" : "participants.csv";
+  const file = workbookFile([header, ...rows]);
+  const filename = filterQuery(filters).toString() ? "participants-filtered.xlsx" : "participants.xlsx";
 
-  return new Response(`\uFEFF${csv}`, {
+  return new Response(new Uint8Array(file), {
     headers: {
-      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });

@@ -128,8 +128,7 @@ export default async function EventDetailPage({
           </div>
         </section>
 
-        <section className="mt-8 max-w-3xl">
-          <h2 className="mb-3 text-lg font-semibold text-gray-900">{t.eventDetail.ticketType}</h2>
+        <section className="mt-8 max-w-xl">
           <RegisterButton
             eventId={event.id}
             price={event.price}

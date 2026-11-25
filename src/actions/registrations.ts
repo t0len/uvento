@@ -7,7 +7,6 @@ import { releaseExpiredReservations, reservationDeadline } from "@/lib/reservati
 import { occupiedSeatCount } from "@/lib/seats";
 import { createCheckoutUrl, expireOpenCheckout } from "@/lib/stripe-checkout";
 import { holdersForPass, parseHolders, syncTicketPasses, ticketQuantity, type TicketHolder } from "@/lib/tickets";
-import { normalizePhone } from "@/lib/person";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { revalidatePath } from "next/cache";
@@ -24,16 +23,6 @@ function revalidateRegistration(slug: string) {
   revalidatePath("/my/tickets");
   revalidatePath("/dashboard/registrations");
   revalidatePath("/dashboard");
-}
-
-function selfHolder(user: { name: string; lastName: string; phone: string | null }): TicketHolder[] {
-  return [
-    {
-      name: user.name.trim(),
-      lastName: user.lastName.trim(),
-      phone: user.phone ? (normalizePhone(user.phone) ?? "") : "",
-    },
-  ];
 }
 
 function holderJson(holders: TicketHolder[] | null): Prisma.InputJsonValue | typeof Prisma.DbNull {
@@ -75,8 +64,8 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1, r
 
       const quantity = ticketQuantity(requestedQuantity);
       if (quantity == null) return { error: "ticketCount" as const };
-      const named = quantity > 1 ? parseHolders(quantity, rawHolders) : { holders: selfHolder(user) };
-      if ("error" in named) return { error: named.error as "holdersRequired" };
+      const named = parseHolders(quantity, rawHolders);
+      if ("error" in named) return { error: named.error };
       const holders = named.holders;
 
       await releaseExpiredReservations(tx, eventId);
@@ -175,7 +164,7 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1, r
       };
     }, bookingTransaction);
 
-    if ("error" in result && result.error) return { error: await say(result.error) };
+    if ("error" in result) return { error: await say(result.error ?? "bookingFailed") };
 
     await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
@@ -225,11 +214,9 @@ export async function updatePendingTickets(eventId: string, requestedQuantity = 
 
       const delta = quantity - existing.quantity;
       let assignment: { holders: TicketHolder[]; startPosition?: number } | undefined;
-      if (quantity === 1) {
-        assignment = { holders: selfHolder(user) };
-      } else if (delta > 1) {
+      if (delta > 0) {
         const named = parseHolders(delta, rawHolders);
-        if ("error" in named) return { error: named.error as "holdersRequired" };
+        if ("error" in named) return { error: named.error };
         assignment = { holders: named.holders, startPosition: existing.quantity + 1 };
       }
 
@@ -323,7 +310,7 @@ export async function updatePendingTickets(eventId: string, requestedQuantity = 
       };
     }, bookingTransaction);
 
-    if ("error" in result && result.error) return { error: await say(result.error) };
+    if ("error" in result) return { error: await say(result.error ?? "bookingFailed") };
 
     await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
@@ -359,9 +346,9 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
 
       const extra = ticketQuantity(requestedExtra);
       if (extra == null) return { error: "ticketCount" as const };
-      const named = extra > 1 ? parseHolders(extra, rawHolders) : null;
-      if (named && "error" in named) return { error: named.error as "holdersRequired" };
-      const holders = named && "holders" in named ? named.holders : null;
+      const named = parseHolders(extra, rawHolders);
+      if ("error" in named) return { error: named.error };
+      const holders = named.holders;
 
       await releaseExpiredReservations(tx, eventId);
       const existing = await tx.registration.findUnique({
@@ -378,6 +365,10 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
         (payment) => payment.status === "PENDING" && payment.reservedUntil && payment.reservedUntil > new Date(),
       );
       if (openAddon && openAddon.quantity === extra && openAddon.amount === event.price * extra) {
+        await tx.payment.update({
+          where: { id: openAddon.id },
+          data: { holders: holderJson(holders) },
+        });
         return {
           success: true as const,
           status: "PENDING" as const,
@@ -426,7 +417,7 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
           where: { id: existing.id },
           data: { quantity: existing.quantity + extra },
         });
-        await syncTicketPasses(tx, saved, holders ? { holders, startPosition: existing.quantity + 1 } : undefined);
+        await syncTicketPasses(tx, saved, { holders, startPosition: existing.quantity + 1 });
         return {
           success: true as const,
           status: existing.status,
@@ -463,7 +454,7 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
       };
     }, bookingTransaction);
 
-    if ("error" in result && result.error) return { error: await say(result.error) };
+    if ("error" in result) return { error: await say(result.error ?? "bookingFailed") };
     await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
     return {

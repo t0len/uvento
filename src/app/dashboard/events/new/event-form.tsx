@@ -166,7 +166,9 @@ export function EventForm({
       {isPending && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-xl bg-white/90">
           <span className="h-8 w-8 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
-          <p className="text-sm font-medium text-gray-900">{t.dashboard.formCreating}</p>
+          <p className="text-sm font-medium text-gray-900">
+            {eventId ? t.dashboard.formSaving : t.dashboard.formCreating}
+          </p>
         </div>
       )}
       <ol className="grid grid-cols-4 gap-2">
@@ -517,7 +519,7 @@ export function EventForm({
             disabled={isPending || compressing || Boolean(startProblem || endProblem)}
             className="rounded-lg bg-gray-900 px-6 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {isPending ? t.dashboard.formCreating : t.dashboard.saveChanges}
+            {isPending ? t.dashboard.formSaving : t.dashboard.saveChanges}
           </button>
         ) : step === steps.length - 1 ? (
           <button

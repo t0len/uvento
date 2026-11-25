@@ -143,25 +143,18 @@ export function EventPreview({
         ) : null}
 
         {event.participationType !== "OPEN" ? (
-          <section className="mt-8 max-w-3xl">
-            <h2 className="mb-3 text-lg font-semibold text-gray-900">{t.eventDetail.ticketType}</h2>
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <p className="font-medium text-gray-900">{t.eventDetail.standardTicket}</p>
-                  <p className="mt-1 text-sm text-gray-500">{t.eventDetail.ticketAccess}</p>
-                </div>
-                <span className="text-sm font-semibold tabular-nums text-gray-900">
-                  {formatKzt(event.participationType === "PAID" ? event.price : 0, t.common.free, locale)}
-                </span>
-              </div>
+          <section className="mt-8 max-w-xl">
+            <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+              <p className="text-lg font-semibold tabular-nums text-gray-900">
+                {formatKzt(event.participationType === "PAID" ? event.price : 0, t.common.free, locale)}
+              </p>
             </div>
             <button
               type="button"
               disabled
               className="mt-4 w-full cursor-not-allowed rounded-lg bg-gray-300 px-6 py-3 text-sm font-medium text-gray-500"
             >
-              {t.eventDetail.book}
+              {event.participationType === "FREE" ? t.eventDetail.bookFree : t.eventDetail.book}
             </button>
           </section>
         ) : (

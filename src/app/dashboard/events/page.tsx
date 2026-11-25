@@ -77,12 +77,20 @@ export default async function DashboardEventsPage() {
                     {(seats.get(event.id) ?? 0)}/{event.capacity ?? "—"}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/dashboard/events/${event.id}`}
-                      className="text-sm font-medium text-gray-600 hover:text-gray-900"
-                    >
-                      {t.dashboard.manage}
-                    </Link>
+                    <div className="flex flex-wrap gap-3">
+                      <Link
+                        href={`/dashboard/events/${event.id}/edit`}
+                        className="text-sm font-medium text-gray-900 hover:text-gray-600"
+                      >
+                        {t.dashboard.edit}
+                      </Link>
+                      <Link
+                        href={`/dashboard/events/${event.id}`}
+                        className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                      >
+                        {t.dashboard.manage}
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
