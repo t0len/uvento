@@ -8,6 +8,7 @@ import { completedRevenue, displayPayment } from "@/lib/payments";
 import { personName } from "@/lib/person";
 import { forgetExpiredReservations } from "@/lib/reservations";
 import { EventActions } from "./event-actions";
+import { BlockAction } from "@/components/blacklist/block-action";
 
 export default async function DashboardEventDetailPage({
   params,
@@ -26,7 +27,7 @@ export default async function DashboardEventDetailPage({
       categories: { include: { category: true } },
       registrations: {
         include: {
-          user: { select: { name: true, lastName: true, phone: true, email: true } },
+          user: { select: { id: true, name: true, lastName: true, phone: true, email: true } },
           payments: { select: { status: true, amount: true, quantity: true, reservedUntil: true, createdAt: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -35,6 +36,12 @@ export default async function DashboardEventDetailPage({
   });
 
   if (!event) notFound();
+
+  const blockedRows = await prisma.organizationBlacklist.findMany({
+    where: { organizationId: event.organizationId, active: true },
+    select: { userId: true },
+  });
+  const blockedIds = new Set(blockedRows.map((row) => row.userId));
 
   const isMember = event.organization.members.some((m) => m.userId === user.id);
   if (!isMember) notFound();
@@ -137,6 +144,7 @@ export default async function DashboardEventDetailPage({
                     <th className="hidden px-4 py-2 font-medium text-gray-600 sm:table-cell">
                       {t.dashboard.payment}
                     </th>
+                    <th className="px-4 py-2 font-medium text-gray-600">{t.dashboard.actions}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -144,6 +152,11 @@ export default async function DashboardEventDetailPage({
                     <tr key={reg.id}>
                       <td className="px-4 py-2 text-gray-900">
                         {personName(reg.user)}
+                        {blockedIds.has(reg.user.id) ? (
+                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                            {t.blacklist.blocked}
+                          </span>
+                        ) : null}
                         {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
                           <span className="ml-2 text-xs text-gray-500">×{reg.quantity}</span>
                         ) : null}
@@ -163,6 +176,17 @@ export default async function DashboardEventDetailPage({
                             ? t.payment[payment.status as keyof typeof t.payment] || payment.status
                             : t.payment.none;
                         })()}
+                      </td>
+                      <td className="px-4 py-2">
+                        {reg.user.id === user.id ? null : (
+                          <BlockAction
+                            userId={reg.user.id}
+                            organizationId={event.organizationId}
+                            blocked={blockedIds.has(reg.user.id)}
+                            name={personName(reg.user)}
+                            email={reg.user.email}
+                          />
+                        )}
                       </td>
                     </tr>
                   ))}

@@ -167,7 +167,10 @@ export function EventCatalog({
   }
 
   const months = useMemo(() => buildDateStrip(events, today, locale), [events, today, locale]);
-  const knownDays = useMemo(() => new Set(months.flatMap((month) => month.days.map((item) => item.date))), [months]);
+  const knownDays = useMemo(
+    () => new Set(months.flatMap((month) => month.days.filter((item) => item.busy).map((item) => item.date))),
+    [months],
+  );
   const selected = knownDays.has(day) ? day : "";
 
   const filtered = useMemo(() => {
@@ -286,42 +289,56 @@ export function EventCatalog({
             </svg>
             {labels.allDates}
           </button>
+          {selected ? (
+            <button
+              type="button"
+              onClick={() => selectDay("")}
+              className="mb-3 inline-flex shrink-0 items-center gap-2 rounded-full bg-gray-900 px-4 py-2 text-sm font-medium text-white"
+            >
+              {dayLabel(selected, locale, { day: "numeric", month: "long" })}
+              <span aria-hidden="true">×</span>
+            </button>
+          ) : null}
           <div ref={stripRef} className="flex min-w-0 flex-1 gap-5 overflow-x-auto pb-1 [scrollbar-width:thin]">
-            {months.map((month) => (
-              <div key={month.key} className="shrink-0">
-                <p className="sticky left-0 z-10 mb-2 w-max bg-gray-50 pr-3 text-sm font-semibold text-gray-900">
-                  {month.label}
-                </p>
-                <div className="flex">
-                  {month.days.map((item) => {
-                    const active = selected === item.date;
-                    return (
-                      <button
-                        key={item.date}
-                        type="button"
-                        data-day={item.date}
-                        aria-pressed={active}
-                        onClick={() => selectDay(item.date)}
-                        className="flex w-10 flex-col items-center gap-1 rounded-lg px-0.5 py-1 hover:bg-gray-100"
-                      >
-                        <span className={`text-[11px] ${active ? "text-gray-900" : "text-gray-400"}`}>{item.weekday}</span>
-                        <span
-                          className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
+            {months.map((month) => {
+              const days = month.days.filter((item) => item.busy);
+              if (days.length === 0) return null;
+              return (
+                <div key={month.key} className="shrink-0">
+                  <p className="mb-2 text-sm font-semibold text-gray-900">{month.label}</p>
+                  <div className="flex gap-1.5">
+                    {days.map((item) => {
+                      const active = selected === item.date;
+                      const fullDate = dayLabel(item.date, locale, {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      });
+                      return (
+                        <button
+                          key={item.date}
+                          type="button"
+                          data-day={item.date}
+                          aria-pressed={active}
+                          aria-label={fullDate}
+                          onClick={() => selectDay(item.date)}
+                          className={`flex min-w-12 flex-col items-center rounded-2xl px-2 py-2 transition active:scale-95 ${
                             active
-                              ? "bg-gray-900 font-semibold text-white"
-                              : item.busy
-                                ? "font-medium text-gray-900"
-                                : "text-gray-300"
+                              ? "bg-gray-900 text-white shadow-md"
+                              : "bg-white text-gray-900 ring-1 ring-gray-200 hover:bg-gray-50"
                           }`}
                         >
-                          {item.number}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <span className={`text-[11px] ${active ? "text-white/70" : "text-gray-400"}`}>
+                            {item.weekday}
+                          </span>
+                          <span className="text-base font-semibold leading-tight">{item.number}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ) : null}
@@ -346,7 +363,7 @@ export function EventCatalog({
                 <div className="p-4">
                   <h3 className="font-semibold text-gray-900">{event.title}</h3>
                   <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-                    <span>
+                    <span suppressHydrationWarning>
                       {formatEventDate(start, locale)}
                       {start ? ` · ${formatEventTime(start, locale)}` : ""}
                     </span>

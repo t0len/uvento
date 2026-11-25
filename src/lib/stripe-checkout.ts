@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import { prisma } from "@/lib/prisma";
+import { isUserBlocked } from "@/lib/blacklist";
 import { releaseExpiredReservations } from "@/lib/reservations";
 import { holdersForPass, syncTicketPasses } from "@/lib/tickets";
 import { getStripe } from "@/lib/stripe";
@@ -79,6 +80,9 @@ export async function createCheckoutUrl(registrationId: string, userId: string, 
     include: { payments: { orderBy: { createdAt: "desc" } }, event: true },
   });
   if (!registration || registration.userId !== userId) return { error: "noActiveHold" as const };
+  if (await isUserBlocked(prisma, registration.event.organizationId, registration.userId)) {
+    return { error: "blockedByOrganizer" as const };
+  }
 
   const payment = paymentId
     ? registration.payments.find((item) => item.id === paymentId)

@@ -45,6 +45,12 @@ export default async function DashboardLayout({
                 {t.dashboard.registrations}
               </Link>
               <Link
+                href="/dashboard/blocked"
+                className="text-sm font-medium text-gray-700 hover:text-gray-900"
+              >
+                {t.blacklist.nav}
+              </Link>
+              <Link
                 href="/dashboard/check-in"
                 className="text-sm font-medium text-gray-700 hover:text-gray-900"
               >
@@ -63,6 +69,7 @@ export default async function DashboardLayout({
             { href: "/dashboard", label: t.dashboard.overview },
             { href: "/dashboard/events", label: t.dashboard.events },
             { href: "/dashboard/registrations", label: t.dashboard.registrations },
+            { href: "/dashboard/blocked", label: t.blacklist.nav },
             { href: "/dashboard/check-in", label: t.dashboard.checkIn },
           ]}
         />

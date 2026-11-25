@@ -8,6 +8,7 @@ import { forgetExpiredReservations } from "@/lib/reservations";
 import { filterQuery, registrationWhere, type RegistrationFilters } from "@/lib/registration-filters";
 import { displayPayment } from "@/lib/payments";
 import { personName } from "@/lib/person";
+import { BlockAction } from "@/components/blacklist/block-action";
 
 const STATUSES = ["PENDING", "CONFIRMED", "CHECKED_IN", "CANCELLED"] as const;
 
@@ -38,14 +39,23 @@ export default async function DashboardRegistrationsPage({
       ? await prisma.registration.findMany({
           where: registrationWhere(orgIds, filters),
         include: {
-          user: { select: { name: true, lastName: true, phone: true, email: true } },
-          event: { select: { title: true } },
+          user: { select: { id: true, name: true, lastName: true, phone: true, email: true } },
+          event: { select: { title: true, organizationId: true } },
           payments: { select: { status: true, amount: true, createdAt: true } },
           tickets: { select: { checkedInAt: true } },
         },
         orderBy: { createdAt: "desc" },
       })
     : [];
+
+  const blockedRows =
+    orgIds.length > 0
+      ? await prisma.organizationBlacklist.findMany({
+          where: { organizationId: { in: orgIds }, active: true },
+          select: { organizationId: true, userId: true },
+        })
+      : [];
+  const blockedKeys = new Set(blockedRows.map((row) => `${row.organizationId}:${row.userId}`));
 
   const statusColors: Record<string, string> = {
     CONFIRMED: "bg-green-100 text-green-700",
@@ -142,6 +152,7 @@ export default async function DashboardRegistrationsPage({
                   {t.dashboard.payment}
                 </th>
                 <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.attendance}</th>
+                <th className="px-4 py-3 font-medium text-gray-700">{t.dashboard.actions}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -150,6 +161,11 @@ export default async function DashboardRegistrationsPage({
                   <td className="px-4 py-3">
                     <p className="font-medium text-gray-900">
                       {personName(reg.user)}
+                      {blockedKeys.has(`${reg.event.organizationId}:${reg.user.id}`) ? (
+                        <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                          {t.blacklist.blocked}
+                        </span>
+                      ) : null}
                       {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
                         <span className="ml-2 text-xs font-normal text-gray-500">×{reg.quantity}</span>
                       ) : null}
@@ -185,6 +201,17 @@ export default async function DashboardRegistrationsPage({
                       if (arrived >= reg.quantity) return t.dashboard.attended;
                       return `${arrived}/${reg.quantity}`;
                     })()}
+                  </td>
+                  <td className="px-4 py-3">
+                    {reg.user.id === user.id ? null : (
+                      <BlockAction
+                        userId={reg.user.id}
+                        organizationId={reg.event.organizationId}
+                        blocked={blockedKeys.has(`${reg.event.organizationId}:${reg.user.id}`)}
+                        name={personName(reg.user)}
+                        email={reg.user.email}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}

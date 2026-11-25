@@ -9,6 +9,7 @@ import { createCheckoutUrl, expireOpenCheckout } from "@/lib/stripe-checkout";
 import { holdersForPass, parseHolders, syncTicketPasses, ticketQuantity, type TicketHolder } from "@/lib/tickets";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
+import { isUserBlocked } from "@/lib/blacklist";
 import { revalidatePath } from "next/cache";
 
 const bookingTransaction = { timeout: 15_000 };
@@ -16,6 +17,12 @@ const bookingTransaction = { timeout: 15_000 };
 async function say(code: string) {
   const { t } = await getI18n();
   return errorText(t, code);
+}
+
+async function denied(code: string) {
+  const error = await say(code);
+  if (code === "blockedByOrganizer") return { error, href: "/my/restrictions" };
+  return { error };
 }
 
 function revalidateRegistration(slug: string) {
@@ -61,6 +68,9 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1, r
         return { error: "openNoBooking" as const };
       }
       if (!event.endDate || event.endDate < new Date()) return { error: "eventEnded" as const };
+      if (await isUserBlocked(tx, event.organizationId, user.id)) {
+        return { error: "blockedByOrganizer" as const };
+      }
 
       const quantity = ticketQuantity(requestedQuantity);
       if (quantity == null) return { error: "ticketCount" as const };
@@ -164,7 +174,7 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1, r
       };
     }, bookingTransaction);
 
-    if ("error" in result) return { error: await say(result.error ?? "bookingFailed") };
+    if ("error" in result) return denied(result.error ?? "bookingFailed");
 
     await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
@@ -200,6 +210,9 @@ export async function updatePendingTickets(eventId: string, requestedQuantity = 
       if (event.status !== "PUBLISHED") return { error: "registrationClosed" as const };
       if (event.participationType === "OPEN") return { error: "openNoBooking" as const };
       if (!event.endDate || event.endDate < new Date()) return { error: "eventEnded" as const };
+      if (await isUserBlocked(tx, event.organizationId, user.id)) {
+        return { error: "blockedByOrganizer" as const };
+      }
 
       const quantity = ticketQuantity(requestedQuantity);
       if (quantity == null) return { error: "ticketCount" as const };
@@ -310,7 +323,7 @@ export async function updatePendingTickets(eventId: string, requestedQuantity = 
       };
     }, bookingTransaction);
 
-    if ("error" in result) return { error: await say(result.error ?? "bookingFailed") };
+    if ("error" in result) return denied(result.error ?? "bookingFailed");
 
     await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
@@ -343,6 +356,9 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
       if (event.status !== "PUBLISHED") return { error: "registrationClosed" as const };
       if (event.participationType === "OPEN") return { error: "openNoBooking" as const };
       if (!event.endDate || event.endDate < new Date()) return { error: "eventEnded" as const };
+      if (await isUserBlocked(tx, event.organizationId, user.id)) {
+        return { error: "blockedByOrganizer" as const };
+      }
 
       const extra = ticketQuantity(requestedExtra);
       if (extra == null) return { error: "ticketCount" as const };
@@ -454,7 +470,7 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
       };
     }, bookingTransaction);
 
-    if ("error" in result) return { error: await say(result.error ?? "bookingFailed") };
+    if ("error" in result) return denied(result.error ?? "bookingFailed");
     await expireOpenCheckout(result.staleCheckoutId);
     revalidateRegistration(result.slug);
     return {
@@ -528,6 +544,9 @@ export async function restoreRegistration(registrationId: string) {
       if (registration.event.status !== "PUBLISHED") return { error: "registrationClosed" as const };
       if (!registration.event.endDate || registration.event.endDate < new Date()) {
         return { error: "eventEnded" as const };
+      }
+      if (await isUserBlocked(tx, registration.event.organizationId, registration.userId)) {
+        return { error: "attendeeBlocked" as const };
       }
 
       await tx.$queryRaw`
@@ -670,12 +689,12 @@ export async function confirmPayment(registrationId: string) {
 export async function startStripeCheckout(
   registrationId: string,
   paymentId?: string,
-): Promise<{ error: string } | { url: string }> {
+): Promise<{ error: string; href?: string } | { url: string }> {
   const user = await requireAuth();
   if (!user.id) return { error: await say("noActiveHold") };
   try {
     const result = await createCheckoutUrl(registrationId, user.id, paymentId);
-    if ("error" in result && result.error) return { error: await say(result.error) };
+    if ("error" in result && result.error) return denied(result.error);
     if ("url" in result && result.url) return { url: result.url };
     return { error: await say("stripeCheckoutFailed") };
   } catch (error) {

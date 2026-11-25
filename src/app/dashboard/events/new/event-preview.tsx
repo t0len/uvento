@@ -144,15 +144,26 @@ export function EventPreview({
 
         {event.participationType !== "OPEN" ? (
           <section className="mt-8 max-w-xl">
-            <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-              <p className="text-lg font-semibold tabular-nums text-gray-900">
-                {formatKzt(event.participationType === "PAID" ? event.price : 0, t.common.free, locale)}
-              </p>
-            </div>
+            {event.participationType === "FREE" ? (
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+                <p className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  {t.common.free}
+                </p>
+                <p className="mt-1.5 text-sm text-emerald-950">{t.eventDetail.freeNote}</p>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3.5">
+                <p className="text-lg font-semibold tabular-nums text-gray-900">
+                  {formatKzt(event.price, t.common.free, locale)}
+                </p>
+              </div>
+            )}
             <button
               type="button"
               disabled
-              className="mt-4 w-full cursor-not-allowed rounded-lg bg-gray-300 px-6 py-3 text-sm font-medium text-gray-500"
+              className={`mt-4 w-full cursor-not-allowed rounded-xl px-6 py-3.5 text-sm font-semibold text-white ${
+                event.participationType === "FREE" ? "bg-emerald-700" : "bg-gray-900"
+              }`}
             >
               {event.participationType === "FREE" ? t.eventDetail.bookFree : t.eventDetail.book}
             </button>

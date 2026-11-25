@@ -7,6 +7,12 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { countTickets, formatKzt } from "@/lib/format";
 import { HolderForm, type HolderDraft } from "./holder-form";
+import { ActionError } from "@/components/blacklist/action-error";
+
+function bookingError(res: { error?: string; href?: string; success?: boolean } | null | undefined) {
+  if (!res?.error) return null;
+  return { message: res.error, href: res.href ?? null };
+}
 
 function clampCount(value: number, max: number | null) {
   const whole = Number.isInteger(value) && value > 0 ? value : 1;
@@ -50,6 +56,7 @@ export function RegisterButton({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorHref, setErrorHref] = useState<string | null>(null);
   const [status, setStatus] = useState(existingStatus);
   const [currentRegistrationId, setCurrentRegistrationId] = useState(registrationId);
   const [pendingPayment, setPendingPayment] = useState(hasPendingPayment);
@@ -86,6 +93,9 @@ export function RegisterButton({
   const totalLabel = formatKzt(price * (showStepper ? quantity : booked ? owned : quantity), t.common.free, locale);
   const canAdd = showStepper && (max == null || quantity < max);
   const canRemove = showStepper && quantity > 1;
+  const ctaClass = freeEvent
+    ? "rounded-xl bg-emerald-700 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:active:scale-100"
+    : "rounded-xl bg-gray-900 px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.98] active:bg-gray-950 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:active:scale-100";
 
   function rememberQuantity(next: number) {
     const clamped = clampCount(next, max);
@@ -99,9 +109,13 @@ export function RegisterButton({
   function placeNew(holders?: HolderDraft[]) {
     startTransition(async () => {
       setError(null);
+      setErrorHref(null);
       const res = await registerForEvent(eventId, quantity, holders);
-      if (res?.error) setError(res.error);
-      else if (res?.success) {
+      const failed = bookingError(res);
+      if (failed) {
+        setError(failed.message);
+        setErrorHref(failed.href);
+      } else if (res && "success" in res && res.success) {
         setCollecting(false);
         setStatus(res.status);
         setCurrentRegistrationId(res.registrationId);
@@ -120,9 +134,13 @@ export function RegisterButton({
   function placePending(holders?: HolderDraft[]) {
     startTransition(async () => {
       setError(null);
+      setErrorHref(null);
       const res = await updatePendingTickets(eventId, quantity, holders);
-      if (res?.error) setError(res.error);
-      else if (res?.success) {
+      const failed = bookingError(res);
+      if (failed) {
+        setError(failed.message);
+        setErrorHref(failed.href);
+      } else if (res && "success" in res && res.success) {
         setCollecting(false);
         setStatus(res.status);
         setCurrentRegistrationId(res.registrationId);
@@ -153,9 +171,13 @@ export function RegisterButton({
   function placeExtra(holders?: HolderDraft[]) {
     startTransition(async () => {
       setError(null);
+      setErrorHref(null);
       const res = await addTickets(eventId, quantity, holders);
-      if (res?.error) setError(res.error);
-      else if (res?.success) {
+      const failed = bookingError(res);
+      if (failed) {
+        setError(failed.message);
+        setErrorHref(failed.href);
+      } else if (res && "success" in res && res.success) {
         setCollecting(false);
         if (res.status === "PENDING") {
           setPendingPayment(true);
@@ -169,43 +191,62 @@ export function RegisterButton({
     });
   }
 
+  const stepper = showStepper ? (
+    <div className="flex items-center rounded-xl border border-gray-200 bg-white shadow-sm">
+      <button
+        type="button"
+        aria-label={t.eventDetail.removeTicket}
+        disabled={!canRemove}
+        onClick={() => rememberQuantity(quantity - 1)}
+        className="px-3.5 py-2.5 text-base leading-none text-gray-800 transition hover:bg-gray-50 active:scale-95 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:active:scale-100"
+      >
+        −
+      </button>
+      <span className="min-w-8 text-center text-sm font-semibold tabular-nums text-gray-900">{quantity}</span>
+      <button
+        type="button"
+        aria-label={t.eventDetail.addTicket}
+        disabled={!canAdd}
+        onClick={() => rememberQuantity(quantity + 1)}
+        className="px-3.5 py-2.5 text-base leading-none text-gray-900 transition hover:bg-gray-50 active:scale-95 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent disabled:active:scale-100"
+      >
+        +
+      </button>
+    </div>
+  ) : null;
+
   const ticketRow = (
-    <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+    <div
+      className={
+        freeEvent
+          ? "rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5"
+          : "rounded-2xl border border-gray-200 bg-white px-4 py-3.5"
+      }
+    >
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-lg font-semibold tabular-nums text-gray-900">{totalLabel}</p>
+          {freeEvent ? (
+            <>
+              <p className="inline-flex items-center rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                {t.common.free}
+              </p>
+              <p className="mt-1.5 text-sm text-emerald-950">{t.eventDetail.freeNote}</p>
+            </>
+          ) : (
+            <p className="text-lg font-semibold tabular-nums text-gray-900">{totalLabel}</p>
+          )}
           {booked && owned > 0 && !showStepper ? (
-            <p className="text-xs text-gray-400">{countTickets(owned, locale)}</p>
+            <p className={`text-xs ${freeEvent ? "mt-1 text-emerald-800/70" : "text-gray-400"}`}>
+              {countTickets(owned, locale)}
+            </p>
           ) : null}
-          {price > 0 && showStepper && quantity > 1 ? (
+          {!freeEvent && price > 0 && showStepper && quantity > 1 ? (
             <p className="text-xs text-gray-400">
               {formatKzt(price, t.common.free, locale)} × {quantity}
             </p>
           ) : null}
         </div>
-        {showStepper ? (
-            <div className="flex items-center rounded-lg border border-gray-200 bg-white">
-              <button
-                type="button"
-                aria-label={t.eventDetail.removeTicket}
-                disabled={!canRemove}
-                onClick={() => rememberQuantity(quantity - 1)}
-                className="px-3 py-2 text-base leading-none text-gray-800 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
-              >
-                −
-              </button>
-              <span className="min-w-8 text-center text-sm font-medium tabular-nums text-gray-900">{quantity}</span>
-              <button
-                type="button"
-                aria-label={t.eventDetail.addTicket}
-                disabled={!canAdd}
-                onClick={() => rememberQuantity(quantity + 1)}
-                className="px-3 py-2 text-base leading-none text-gray-900 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:text-gray-300 disabled:hover:bg-transparent"
-              >
-                +
-              </button>
-            </div>
-        ) : null}
+        {stepper}
       </div>
     </div>
   );
@@ -218,7 +259,7 @@ export function RegisterButton({
     action = (
       <Link
         href="/login"
-        className="mt-4 flex w-full items-center justify-center rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 active:bg-gray-950"
+        className={`mt-4 flex w-full items-center justify-center ${ctaClass}`}
       >
         {bookLabel}
       </Link>
@@ -237,7 +278,7 @@ export function RegisterButton({
       <button
         onClick={continueUnpaid}
         disabled={isPending}
-        className="mt-4 w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        className={`mt-4 w-full ${ctaClass}`}
       >
         {isPending ? t.common.loading : t.myTickets.paySubmit}
       </button>
@@ -248,7 +289,7 @@ export function RegisterButton({
         <button
           onClick={() => setCollecting(true)}
           disabled={isPending}
-          className="rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className={ctaClass}
         >
           {isPending ? t.common.loading : moreLabel}
         </button>
@@ -257,9 +298,13 @@ export function RegisterButton({
             onClick={() => {
               startTransition(async () => {
                 setError(null);
+                setErrorHref(null);
                 const res = await cancelRegistration(currentRegistrationId);
-                if (res?.error) setError(res.error);
-                else {
+                const failed = bookingError(res);
+                if (failed) {
+                  setError(failed.message);
+                  setErrorHref(failed.href);
+                } else {
                   setStatus("CANCELLED");
                   setPendingPayment(false);
                 }
@@ -288,9 +333,13 @@ export function RegisterButton({
             onClick={() => {
               startTransition(async () => {
                 setError(null);
+                setErrorHref(null);
                 const res = await cancelRegistration(currentRegistrationId);
-                if (res?.error) setError(res.error);
-                else setStatus("CANCELLED");
+                const failed = bookingError(res);
+                if (failed) {
+                  setError(failed.message);
+                  setErrorHref(failed.href);
+                } else setStatus("CANCELLED");
               });
             }}
             disabled={isPending}
@@ -306,7 +355,7 @@ export function RegisterButton({
       <button
         onClick={() => setCollecting(true)}
         disabled={isPending || isFull}
-        className="mt-4 w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
+        className={`mt-4 w-full ${ctaClass}`}
       >
         {isPending ? t.common.loading : isFull ? t.eventDetail.soldOut : bookLabel}
       </button>
@@ -322,6 +371,7 @@ export function RegisterButton({
           count={holderCount}
           buyer={buyer}
           pending={isPending}
+          tone={freeEvent ? "free" : "paid"}
           submitLabel={editingUnpaid ? t.myTickets.paySubmit : buyingMore ? moreLabel : bookLabel}
           onCancel={() => setCollecting(false)}
           onSubmit={(holders) =>
@@ -339,7 +389,7 @@ export function RegisterButton({
           {t.myTickets.paySubmit}
         </Link>
       ) : null}
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error ? <ActionError message={error} href={errorHref} linkLabel={t.blacklist.seeHistory} /> : null}
     </div>
   );
 }

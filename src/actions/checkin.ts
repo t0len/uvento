@@ -6,6 +6,7 @@ import { formatEventDate, formatEventTime } from "@/lib/format";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { personName } from "@/lib/person";
+import { isUserBlocked } from "@/lib/blacklist";
 import { syncTicketPasses } from "@/lib/tickets";
 import { revalidatePath } from "next/cache";
 
@@ -65,6 +66,9 @@ export async function checkIn(ticketCode: string, eventId: string) {
   if (registration.event.status === "CANCELLED") return { error: await say("eventCancelled") };
   if (registration.event.endDate && registration.event.endDate < now) return { error: await say("eventEnded") };
   if (registration.event.status !== "PUBLISHED") return { error: await say("registrationClosed") };
+  if (await isUserBlocked(prisma, registration.event.organizationId, registration.userId)) {
+    return { error: await say("attendeeBlocked") };
+  }
   if (registration.status === "CANCELLED") return { error: await say("registrationCancelled") };
   if (registration.status === "PENDING") return { error: await say("paymentNotConfirmed") };
   if (registration.status !== "CONFIRMED" && registration.status !== "CHECKED_IN") {

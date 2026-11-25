@@ -41,6 +41,11 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum OrganizationBlockAction {
+  BLOCK
+  UNBLOCK
+}
+
 model User {
   id            String    @id @default(cuid())
   email         String    @unique
@@ -58,6 +63,8 @@ model User {
   organizationMemberships OrganizationMember[]
   registrations           Registration[]
   payments                Payment[]
+  blacklists              OrganizationBlacklist[]      @relation("BlacklistSubject")
+  blacklistActions        OrganizationBlacklistEntry[] @relation("BlacklistActor")
 
   @@map("users")
 }
@@ -72,8 +79,9 @@ model Organization {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  members OrganizationMember[]
-  events  Event[]
+  members    OrganizationMember[]
+  events     Event[]
+  blacklists OrganizationBlacklist[]
 
   @@map("organizations")
 }
@@ -200,4 +208,38 @@ model Payment {
   @@index([registrationId])
   @@index([status])
   @@map("payments")
+}
+
+model OrganizationBlacklist {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User                         @relation("BlacklistSubject", fields: [userId], references: [id], onDelete: Cascade)
+  entries      OrganizationBlacklistEntry[]
+
+  @@unique([organizationId, userId])
+  @@index([organizationId, active])
+  @@map("organization_blacklists")
+}
+
+model OrganizationBlacklistEntry {
+  id           String                  @id @default(cuid())
+  blacklistId  String
+  action       OrganizationBlockAction
+  reason       String
+  documentPath String?
+  documentName String?
+  actorId      String?
+  createdAt    DateTime                @default(now())
+
+  blacklist OrganizationBlacklist @relation(fields: [blacklistId], references: [id], onDelete: Cascade)
+  actor     User?                 @relation("BlacklistActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([blacklistId, createdAt])
+  @@map("organization_blacklist_entries")
 }

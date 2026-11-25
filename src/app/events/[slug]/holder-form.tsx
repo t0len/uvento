@@ -15,6 +15,7 @@ export function HolderForm({
   buyer,
   pending,
   submitLabel,
+  tone = "paid",
   onCancel,
   onSubmit,
 }: {
@@ -22,6 +23,7 @@ export function HolderForm({
   buyer: HolderDraft | null;
   pending: boolean;
   submitLabel: string;
+  tone?: "paid" | "free";
   onCancel: () => void;
   onSubmit: (holders: HolderDraft[]) => void;
 }) {
@@ -145,7 +147,11 @@ export function HolderForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+          className={
+            tone === "free"
+              ? "rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-800 active:scale-[0.98] disabled:opacity-50"
+              : "rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.98] disabled:opacity-50"
+          }
         >
           {pending ? t.common.loading : submitLabel}
         </button>

@@ -6,6 +6,7 @@ import { startStripeCheckout } from "@/actions/registrations";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { localeDate } from "@/lib/i18n/config";
 import { countTickets, formatEventTime, formatKzt } from "@/lib/format";
+import { ActionError } from "@/components/blacklist/action-error";
 
 export function PayScreen({
   registrationId,
@@ -27,6 +28,7 @@ export function PayScreen({
   const { t, locale } = useI18n();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [errorHref, setErrorHref] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const heldUntil = reservedUntil
     ? formatEventTime(new Date(reservedUntil), localeDate[locale])
@@ -53,16 +55,22 @@ export function PayScreen({
         </p>
       ) : null}
       {cancelled ? <p className="mt-4 max-w-md text-sm text-gray-600">{t.myTickets.paymentCancelled}</p> : null}
-      {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
+      {error ? (
+        <div className="mt-4">
+          <ActionError message={error} href={errorHref} linkLabel={t.blacklist.seeHistory} />
+        </div>
+      ) : null}
       <button
         type="button"
         disabled={pending}
         onClick={() => {
           startTransition(async () => {
             setError(null);
+            setErrorHref(null);
             const result = await startStripeCheckout(registrationId, paymentId);
             if ("error" in result) {
               setError(result.error);
+              setErrorHref(result.href ?? null);
               return;
             }
             if (result.url.startsWith("/")) router.push(result.url);
