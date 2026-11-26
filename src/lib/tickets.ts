@@ -19,21 +19,28 @@ export function parseHolders(count: number, raw: unknown): { holders: TicketHold
   return { holders };
 }
 
-function personKey(person: { name: string; lastName: string; phone: string | null | undefined }) {
-  const phone = person.phone ? normalizePhone(person.phone) : null;
-  const name = person.name.trim().toLocaleLowerCase();
-  const lastName = person.lastName.trim().toLocaleLowerCase();
-  if (!phone || !name || !lastName) return null;
-  return `${name}\u0000${lastName}\u0000${phone}`;
+function sameText(a: string, b: string) {
+  return a.trim().toLocaleLowerCase() === b.trim().toLocaleLowerCase();
 }
 
+/** A ticket is for the buyer when the name matches, and any last name or phone the profile has also matches. */
 export function isSelfHolder(
   buyer: { name: string; lastName: string; phone: string | null },
   holder: { name: string; lastName: string; phone: string },
 ) {
-  const buyerKey = personKey(buyer);
-  const holderKey = personKey(holder);
-  return buyerKey != null && buyerKey === holderKey;
+  const buyerName = buyer.name.trim();
+  const holderName = holder.name.trim();
+  if (!buyerName || !holderName || !sameText(buyerName, holderName)) return false;
+
+  const buyerLast = buyer.lastName.trim();
+  if (buyerLast && !sameText(buyerLast, holder.lastName)) return false;
+
+  const buyerPhone = buyer.phone ? normalizePhone(buyer.phone) : null;
+  if (buyerPhone) {
+    const holderPhone = holder.phone ? normalizePhone(holder.phone) : null;
+    if (holderPhone !== buyerPhone) return false;
+  }
+  return true;
 }
 
 export function hasSelfTicket(

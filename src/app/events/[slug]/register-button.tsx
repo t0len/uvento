@@ -35,6 +35,7 @@ export function RegisterButton({
   participationType,
   slug,
   hasPendingPayment,
+  hasCompletedPayment = false,
   buyer = null,
   allowSelf = true,
 }: {
@@ -52,6 +53,7 @@ export function RegisterButton({
   participationType: "OPEN" | "FREE" | "PAID";
   slug: string;
   hasPendingPayment: boolean;
+  hasCompletedPayment?: boolean;
   buyer?: HolderDraft | null;
   allowSelf?: boolean;
 }) {
@@ -295,7 +297,7 @@ export function RegisterButton({
         >
           {isPending ? t.common.loading : moreLabel}
         </button>
-        {status !== "CHECKED_IN" && currentRegistrationId ? (
+        {status !== "CHECKED_IN" && currentRegistrationId && !hasCompletedPayment ? (
           <button
             onClick={() => {
               startTransition(async () => {
@@ -330,7 +332,7 @@ export function RegisterButton({
               ? t.status.CHECKED_IN
               : t.events.registered}
         </span>
-        {status !== "CHECKED_IN" && currentRegistrationId && !pendingPayment ? (
+        {status !== "CHECKED_IN" && currentRegistrationId && !pendingPayment && !hasCompletedPayment ? (
           <button
             onClick={() => {
               startTransition(async () => {

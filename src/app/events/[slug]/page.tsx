@@ -163,6 +163,9 @@ export default async function EventDetailPage({
               activeRegistration?.status === "PENDING" ||
               Boolean(activeRegistration?.payments.some((payment) => payment.status === "PENDING"))
             }
+            hasCompletedPayment={Boolean(
+              activeRegistration?.payments.some((payment) => payment.status === "COMPLETED"),
+            )}
           />
         </section>
       </main>

@@ -65,6 +65,9 @@ export function BlockHistory({ entries }: { entries: BlockHistoryEntry[] }) {
               </time>
             </div>
             <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-900">{entry.reason}</p>
+            {entry.actorName ? (
+              <p className="mt-2 text-xs text-gray-500">{t.blacklist.by.replaceAll("{name}", entry.actorName)}</p>
+            ) : null}
             {entry.documentName ? <DocumentButton entryId={entry.id} name={entry.documentName} /> : null}
           </li>
         );

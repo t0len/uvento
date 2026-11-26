@@ -30,3 +30,7 @@ export function displayPayment<T extends { status: PaymentStatus; createdAt: Dat
 export function completedRevenue(payments: { status: PaymentStatus; amount: number }[]) {
   return payments.reduce((sum, payment) => sum + (payment.status === "COMPLETED" ? payment.amount : 0), 0);
 }
+
+export function hasCompletedPayment(payments: { status: PaymentStatus }[]) {
+  return payments.some((payment) => payment.status === "COMPLETED");
+}

@@ -5,7 +5,7 @@ import { requireAuth } from "@/lib/auth";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { normalizeBlockReason } from "@/lib/block-reason";
-import { cancelActiveRegistrations } from "@/lib/blacklist";
+import { cancelActiveRegistrations, historyEntry } from "@/lib/blacklist";
 import { deleteBlockDocument, saveBlockDocument, signedBlockDocumentUrl } from "@/lib/block-documents";
 import { revalidatePath } from "next/cache";
 
@@ -121,6 +121,26 @@ export async function blockUser(formData: FormData) {
 
 export async function unblockUser(formData: FormData) {
   return record("UNBLOCK", formData);
+}
+
+export async function loadBlacklistHistory(
+  blacklistId: string,
+): Promise<{ entries: ReturnType<typeof historyEntry>[] } | { error: string }> {
+  const user = await requireAuth();
+  const row = await prisma.organizationBlacklist.findUnique({
+    where: { id: blacklistId },
+    select: {
+      organizationId: true,
+      entries: {
+        orderBy: { createdAt: "desc" },
+        include: { actor: { select: { name: true, lastName: true } } },
+      },
+    },
+  });
+  if (!row) return { error: await say("userNotFound") };
+  const allowed = await canManage(user.id, user.role, row.organizationId);
+  if (!allowed) return { error: await say("noRights") };
+  return { entries: row.entries.map(historyEntry) };
 }
 
 export async function blockDocumentUrl(entryId: string): Promise<{ url: string } | { error: string }> {

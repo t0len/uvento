@@ -34,7 +34,7 @@ export async function releaseExpiredReservations(
       data: { status: "FAILED" },
     });
     await db.registration.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, status: "PENDING" },
       data: { status: "CANCELLED", reservedUntil: null },
     });
   }

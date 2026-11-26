@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/auth";
+import { hasCompletedPayment } from "@/lib/payments";
 import { releaseExpiredReservations, reservationDeadline } from "@/lib/reservations";
 import { occupiedSeatCount } from "@/lib/seats";
 import { createCheckoutUrl, expireOpenCheckout } from "@/lib/stripe-checkout";
@@ -519,7 +520,7 @@ export async function cancelRegistration(registrationId: string) {
 
   const registration = await prisma.registration.findUnique({
     where: { id: registrationId },
-    include: { event: true },
+    include: { event: true, payments: { select: { status: true } } },
   });
 
   if (!registration) return { error: await say("registrationNotFound") };
@@ -532,6 +533,9 @@ export async function cancelRegistration(registrationId: string) {
   if (!allowed) return { error: await say("noCancelRights") };
   if (registration.status === "CANCELLED") return { error: await say("alreadyCancelled") };
   if (registration.status === "CHECKED_IN") return { error: await say("cannotCancelCheckedIn") };
+  if (hasCompletedPayment(registration.payments)) {
+    return { error: await say("paidTicketsStay") };
+  }
 
   await prisma.registration.update({
     where: { id: registrationId },
