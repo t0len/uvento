@@ -37,7 +37,9 @@ export function ReasonDialog({
   const [reason, setReason] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [pending, startTransition] = useTransition();
+  const busy = saving || pending;
   const words = countWords(reason);
   const over = words > BLOCK_REASON_WORD_LIMIT;
   const blocking = mode === "block";
@@ -58,8 +60,9 @@ export function ReasonDialog({
   }
 
   function submit() {
-    if (words === 0 || over || pending) return;
+    if (words === 0 || over || busy) return;
     setError(null);
+    setSaving(true);
     const data = new FormData();
     data.set("organizationId", organizationId);
     data.set("userId", userId);
@@ -69,10 +72,11 @@ export function ReasonDialog({
       const result = blocking ? await blockUser(data) : await unblockUser(data);
       if ("error" in result) {
         setError(result.error);
+        setSaving(false);
         return;
       }
-      onClose();
       router.refresh();
+      onClose();
     });
   }
 
@@ -81,6 +85,8 @@ export function ReasonDialog({
       title={fill(blocking ? t.blacklist.blockTitle : t.blacklist.unblockTitle, { name })}
       subtitle={email}
       onClose={onClose}
+      busy={busy}
+      busyLabel={t.common.loading}
     >
       <p className={`rounded-xl px-3 py-2 text-sm ${blocking ? "bg-red-50 text-red-800" : "bg-gray-50 text-gray-700"}`}>
         {blocking ? fill(t.blacklist.blockNotice, { name }) : t.blacklist.unblockNotice}
@@ -95,12 +101,13 @@ export function ReasonDialog({
         <label className="block text-sm font-medium text-gray-700" htmlFor="block-reason">
           {t.blacklist.reason}
         </label>
-        <textarea
+          <textarea
           id="block-reason"
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           rows={5}
           autoFocus
+          disabled={busy}
           placeholder={t.blacklist.reasonPlaceholder}
           className="mt-1 w-full resize-y rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-gray-500"
         />
@@ -120,6 +127,7 @@ export function ReasonDialog({
               <span className="truncate text-sm text-gray-700">{file.name}</span>
               <button
                 type="button"
+                disabled={busy}
                 onClick={() => {
                   setFile(null);
                   if (fileRef.current) fileRef.current.value = "";
@@ -132,6 +140,7 @@ export function ReasonDialog({
           ) : (
             <button
               type="button"
+              disabled={busy}
               onClick={() => fileRef.current?.click()}
               className="w-full rounded-lg border border-dashed border-gray-300 px-3 py-3 text-left hover:border-gray-400 hover:bg-gray-50"
             >
@@ -145,18 +154,23 @@ export function ReasonDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            disabled={busy}
+            className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             {t.dashboard.cancel}
           </button>
           <button
             type="submit"
-            disabled={pending || words === 0 || over}
-            className={`rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
+            disabled={busy || words === 0 || over}
+            aria-busy={busy}
+            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white disabled:opacity-50 ${
               blocking ? "bg-red-600 hover:bg-red-700" : "bg-gray-900 hover:bg-gray-800"
             }`}
           >
-            {pending ? t.common.loading : blocking ? t.blacklist.block : t.blacklist.unblock}
+            {busy ? (
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+            ) : null}
+            {busy ? t.common.loading : blocking ? t.blacklist.block : t.blacklist.unblock}
           </button>
         </div>
       </form>
