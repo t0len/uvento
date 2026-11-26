@@ -1,10 +1,19 @@
 export const EVENT_TIME_ZONE = "Asia/Almaty";
 const ALMATY_OFFSET = "+05:00";
 
-export function formatKzt(amount: number, freeLabel: string, locale = "ru") {
-  if (amount <= 0) return freeLabel;
+function formatTenge(amount: number, locale: string) {
   const numberLocale = locale === "en" ? "en-US" : locale === "kk" ? "kk-KZ" : "ru-RU";
   return `₸ ${new Intl.NumberFormat(numberLocale).format(amount)}`;
+}
+
+export function formatKzt(amount: number, freeLabel: string, locale = "ru") {
+  if (amount <= 0) return freeLabel;
+  return formatTenge(amount, locale);
+}
+
+/** Always a tenge amount, including ₸ 0. Use for revenue, not for a free ticket price. */
+export function formatKztAmount(amount: number, locale = "ru") {
+  return formatTenge(Number.isFinite(amount) ? amount : 0, locale);
 }
 
 export function countTickets(count: number, locale: string) {

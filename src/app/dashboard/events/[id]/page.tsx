@@ -3,7 +3,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getI18n, localeDate } from "@/lib/i18n";
-import { formatEventDate, formatKzt } from "@/lib/format";
+import { formatEventDate, formatKzt, formatKztAmount } from "@/lib/format";
 import { completedRevenue, displayPayment } from "@/lib/payments";
 import { personName } from "@/lib/person";
 import { forgetExpiredReservations } from "@/lib/reservations";
@@ -70,7 +70,7 @@ export default async function DashboardEventDetailPage({
   };
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-6 flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
@@ -96,106 +96,101 @@ export default async function DashboardEventDetailPage({
         />
       </div>
 
-      <div className="grid min-w-0 gap-6 lg:grid-cols-3">
-        <div className="space-y-4">
-          <StatCard
-            label={t.dashboard.registrations}
-            value={`${heldSeats}/${event.capacity ?? "—"}`}
-          />
-          <StatCard
-            label={t.eventDetail.price}
-            value={formatKzt(event.price, t.common.free, locale)}
-          />
-          <StatCard
-            label={t.dashboard.revenue}
-            value={formatKzt(
-              event.registrations
-                .filter(
-                  (registration) =>
-                    registration.status === "CONFIRMED" || registration.status === "CHECKED_IN",
-                )
-                .reduce((sum, registration) => sum + completedRevenue(registration.payments), 0),
-              t.common.free,
-              locale,
-            )}
-          />
-        </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label={t.dashboard.registrations}
+          value={`${heldSeats}/${event.capacity ?? "—"}`}
+        />
+        <StatCard
+          label={t.eventDetail.price}
+          value={formatKzt(event.price, t.common.free, locale)}
+        />
+        <StatCard
+          label={t.dashboard.revenue}
+          value={formatKztAmount(
+            event.registrations
+              .filter(
+                (registration) =>
+                  registration.status === "CONFIRMED" || registration.status === "CHECKED_IN",
+              )
+              .reduce((sum, registration) => sum + completedRevenue(registration.payments), 0),
+            locale,
+          )}
+        />
+      </div>
 
-        <div className="min-w-0 lg:col-span-2">
-          <div className="rounded-xl border border-gray-200 bg-white">
-            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h2 className="font-semibold text-gray-900">{t.dashboard.recentRegistrations}</h2>
-              <Link href="/dashboard/registrations" className="text-sm text-gray-500 hover:text-gray-700">
-                {t.dashboard.viewAll}
-              </Link>
-            </div>
-            {event.registrations.length === 0 ? (
-              <div className="py-8 text-center text-sm text-gray-500">{t.dashboard.noRegistrations}</div>
-            ) : (
-              <div className="overflow-x-auto">
-              <table className="w-full min-w-[32rem] text-left text-sm">
-                <thead className="border-b border-gray-100 bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 font-medium text-gray-600">{t.dashboard.name}</th>
-                    <th className="hidden px-4 py-2 font-medium text-gray-600 sm:table-cell">
-                      {t.dashboard.email}
-                    </th>
-                    <th className="px-4 py-2 font-medium text-gray-600">{t.dashboard.status}</th>
-                    <th className="hidden px-4 py-2 font-medium text-gray-600 sm:table-cell">
-                      {t.dashboard.payment}
-                    </th>
-                    <th className="px-4 py-2 font-medium text-gray-600">{t.dashboard.actions}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {event.registrations.map((reg) => (
-                    <tr key={reg.id}>
-                      <td className="px-4 py-2 text-gray-900">
-                        {personName(reg.user)}
-                        {blockedIds.has(reg.user.id) ? (
-                          <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                            {t.blacklist.blocked}
-                          </span>
-                        ) : null}
-                        {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
-                          <span className="ml-2 text-xs text-gray-500">×{reg.quantity}</span>
-                        ) : null}
-                        {reg.user.phone ? <p className="text-xs text-gray-500">{reg.user.phone}</p> : null}
-                      </td>
-                      <td className="hidden px-4 py-2 text-gray-500 sm:table-cell">{reg.user.email}</td>
-                      <td className="px-4 py-2">
-                        <RegBadge
-                          status={reg.status}
-                          label={t.status[reg.status as keyof typeof t.status] || reg.status}
-                        />
-                      </td>
-                      <td className="hidden px-4 py-2 text-gray-500 sm:table-cell">
-                        {(() => {
-                          const payment = displayPayment(reg.payments);
-                          return payment
-                            ? t.payment[payment.status as keyof typeof t.payment] || payment.status
-                            : t.payment.none;
-                        })()}
-                      </td>
-                      <td className="px-4 py-2">
-                        {reg.user.id === user.id ? null : (
-                          <BlockAction
-                            userId={reg.user.id}
-                            organizationId={event.organizationId}
-                            blocked={blockedIds.has(reg.user.id)}
-                            name={personName(reg.user)}
-                            email={reg.user.email}
-                          />
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
-            )}
-          </div>
+      <div className="mt-6 min-w-0 rounded-xl border border-gray-200 bg-white">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
+          <h2 className="font-semibold text-gray-900">{t.dashboard.recentRegistrations}</h2>
+          <Link href="/dashboard/registrations" className="text-sm text-gray-500 hover:text-gray-700">
+            {t.dashboard.viewAll}
+          </Link>
         </div>
+        {event.registrations.length === 0 ? (
+          <div className="py-8 text-center text-sm text-gray-500">{t.dashboard.noRegistrations}</div>
+        ) : (
+          <div className="min-w-0 overflow-x-auto">
+          <table className="w-full table-fixed text-left text-sm">
+            <thead className="border-b border-gray-100 bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 font-medium text-gray-600">{t.dashboard.name}</th>
+                <th className="hidden px-4 py-3 font-medium text-gray-600 sm:table-cell">{t.dashboard.email}</th>
+                <th className="px-4 py-3 font-medium text-gray-600">{t.dashboard.status}</th>
+                <th className="hidden px-4 py-3 font-medium text-gray-600 md:table-cell">{t.dashboard.payment}</th>
+                <th className="px-4 py-3 text-right font-medium text-gray-600">{t.dashboard.actions}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {event.registrations.map((reg) => (
+                <tr key={reg.id}>
+                  <td className="px-4 py-3 text-gray-900">
+                    <span className="font-medium">{personName(reg.user)}</span>
+                    {blockedIds.has(reg.user.id) ? (
+                      <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                        {t.blacklist.blocked}
+                      </span>
+                    ) : null}
+                    {reg.status !== "CANCELLED" && reg.quantity > 1 ? (
+                      <span className="ml-2 text-xs text-gray-500">×{reg.quantity}</span>
+                    ) : null}
+                    {reg.user.phone ? <p className="text-xs text-gray-500">{reg.user.phone}</p> : null}
+                  </td>
+                  <td className="hidden overflow-hidden px-4 py-3 text-gray-500 sm:table-cell">
+                    <span className="block truncate" title={reg.user.email}>
+                      {reg.user.email}
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <RegBadge
+                      status={reg.status}
+                      label={t.status[reg.status as keyof typeof t.status] || reg.status}
+                    />
+                  </td>
+                  <td className="hidden whitespace-nowrap px-4 py-3 text-gray-500 md:table-cell">
+                    {(() => {
+                      const payment = displayPayment(reg.payments);
+                      return payment
+                        ? t.payment[payment.status as keyof typeof t.payment] || payment.status
+                        : t.payment.none;
+                    })()}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                    {reg.user.id === user.id ? null : (
+                      <BlockAction
+                        userId={reg.user.id}
+                        organizationId={event.organizationId}
+                        blocked={blockedIds.has(reg.user.id)}
+                        name={personName(reg.user)}
+                        email={reg.user.email}
+                      />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        )}
       </div>
     </div>
   );

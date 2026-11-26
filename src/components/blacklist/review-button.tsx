@@ -10,13 +10,11 @@ export function ReviewButton({
   name,
   email,
   phone,
-  active,
   entries,
 }: {
   name: string;
   email: string;
   phone: string | null;
-  active: boolean;
   entries: BlockHistoryEntry[];
 }) {
   const { t } = useI18n();
@@ -33,16 +31,7 @@ export function ReviewButton({
         {t.blacklist.review}
       </button>
       {open ? (
-        <Modal title={name} subtitle={contact} onClose={() => setOpen(false)} wide>
-          <p className="mb-4">
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                active ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {active ? t.blacklist.blockedNow : t.blacklist.clearNow}
-            </span>
-          </p>
+        <Modal title={name} subtitle={contact} onClose={() => setOpen(false)} width="xl">
           <BlockHistory entries={entries} />
         </Modal>
       ) : null}

@@ -9,6 +9,7 @@ import { formatEventDate, formatEventTime, formatKzt } from "@/lib/format";
 import { forgetExpiredReservations } from "@/lib/reservations";
 import { categoryLabel } from "@/lib/categories";
 import { occupiedSeats } from "@/lib/seats";
+import { hasSelfTicket } from "@/lib/tickets";
 import { RegisterButton } from "./register-button";
 
 export default async function EventDetailPage({
@@ -45,7 +46,10 @@ export default async function EventDetailPage({
   if (session?.user) {
     userRegistration = await prisma.registration.findUnique({
       where: { userId_eventId: { userId: session.user.id!, eventId: event.id } },
-      include: { payments: { select: { status: true, reservedUntil: true } } },
+      include: {
+        payments: { select: { status: true, reservedUntil: true } },
+        tickets: { select: { position: true, holderName: true, holderLastName: true, holderPhone: true } },
+      },
     });
   }
 
@@ -147,6 +151,13 @@ export default async function EventDetailPage({
               buyer
                 ? { name: buyer.name, lastName: buyer.lastName, phone: buyer.phone ?? "" }
                 : null
+            }
+            allowSelf={
+              !(
+                buyer &&
+                activeRegistration &&
+                hasSelfTicket(buyer, activeRegistration.tickets, activeRegistration.quantity)
+              )
             }
             hasPendingPayment={
               activeRegistration?.status === "PENDING" ||

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { membershipOrganizations } from "@/lib/organizations";
 import Link from "next/link";
 import { getI18n, localeDate, tReplace } from "@/lib/i18n";
-import { formatEventDate, formatKzt } from "@/lib/format";
+import { formatEventDate, formatKztAmount } from "@/lib/format";
 import { occupiedSeatsByEvent } from "@/lib/seats";
 import { forgetExpiredReservations } from "@/lib/reservations";
 
@@ -101,7 +101,7 @@ export default async function DashboardPage() {
         <Stat label={t.dashboard.upcomingEvents} value={String(upcomingCount)} />
         <Stat label={t.dashboard.ticketsSold} value={String(ticketsSold)} />
         <Stat label={t.dashboard.checkedInStat} value={String(checkedIn)} />
-        <Stat label={t.dashboard.revenue} value={formatKzt(revenue, t.common.free, locale)} />
+        <Stat label={t.dashboard.revenue} value={formatKztAmount(revenue, locale)} />
       </div>
 
       <h2 className="mb-4 mt-10 text-lg font-semibold text-gray-900">{t.dashboard.yourEvents}</h2>

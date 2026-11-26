@@ -6,7 +6,15 @@ import { requireAuth } from "@/lib/auth";
 import { releaseExpiredReservations, reservationDeadline } from "@/lib/reservations";
 import { occupiedSeatCount } from "@/lib/seats";
 import { createCheckoutUrl, expireOpenCheckout } from "@/lib/stripe-checkout";
-import { holdersForPass, parseHolders, syncTicketPasses, ticketQuantity, type TicketHolder } from "@/lib/tickets";
+import {
+  hasSelfTicket,
+  holdersForPass,
+  parseHolders,
+  selfTicketConflict,
+  syncTicketPasses,
+  ticketQuantity,
+  type TicketHolder,
+} from "@/lib/tickets";
 import { getI18n } from "@/lib/i18n";
 import { errorText } from "@/lib/error-text";
 import { isUserBlocked } from "@/lib/blacklist";
@@ -112,6 +120,8 @@ export async function registerForEvent(eventId: string, requestedQuantity = 1, r
 
       if (event.capacity == null || taken >= event.capacity) return { error: "soldOut" as const };
       if (taken + quantity > event.capacity) return { error: "notEnoughSeats" as const };
+      const selfError = selfTicketConflict(user, holders, false);
+      if (selfError) return { error: selfError };
 
       const paid = event.participationType === "PAID";
       const status = paid ? "PENDING" : "CONFIRMED";
@@ -220,7 +230,10 @@ export async function updatePendingTickets(eventId: string, requestedQuantity = 
       await releaseExpiredReservations(tx, eventId);
       const existing = await tx.registration.findUnique({
         where: { userId_eventId: { userId: user.id, eventId } },
-        include: { payments: { orderBy: { createdAt: "desc" as const } } },
+        include: {
+          payments: { orderBy: { createdAt: "desc" as const } },
+          tickets: { select: { position: true, holderName: true, holderLastName: true, holderPhone: true } },
+        },
       });
       if (!existing || existing.status === "CANCELLED") return { error: "noActiveHold" as const };
       if (existing.status !== "PENDING") return { error: "paymentRecorded" as const };
@@ -230,6 +243,12 @@ export async function updatePendingTickets(eventId: string, requestedQuantity = 
       if (delta > 0) {
         const named = parseHolders(delta, rawHolders);
         if ("error" in named) return { error: named.error };
+        const selfError = selfTicketConflict(
+          user,
+          named.holders,
+          hasSelfTicket(user, existing.tickets, existing.quantity),
+        );
+        if (selfError) return { error: selfError };
         assignment = { holders: named.holders, startPosition: existing.quantity + 1 };
       }
 
@@ -369,13 +388,18 @@ export async function addTickets(eventId: string, requestedExtra = 1, rawHolders
       await releaseExpiredReservations(tx, eventId);
       const existing = await tx.registration.findUnique({
         where: { userId_eventId: { userId: user.id, eventId } },
-        include: { payments: { orderBy: { createdAt: "desc" } } },
+        include: {
+          payments: { orderBy: { createdAt: "desc" } },
+          tickets: { select: { position: true, holderName: true, holderLastName: true, holderPhone: true } },
+        },
       });
       if (!existing || existing.status === "CANCELLED") return { error: "registrationNotFound" as const };
       if (existing.status === "PENDING") return { error: "finishPaymentFirst" as const };
       if (existing.status !== "CONFIRMED" && existing.status !== "CHECKED_IN") {
         return { error: "registrationClosed" as const };
       }
+      const selfError = selfTicketConflict(user, holders, hasSelfTicket(user, existing.tickets, existing.quantity));
+      if (selfError) return { error: selfError };
 
       const openAddon = existing.payments.find(
         (payment) => payment.status === "PENDING" && payment.reservedUntil && payment.reservedUntil > new Date(),

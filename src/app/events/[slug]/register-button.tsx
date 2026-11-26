@@ -36,6 +36,7 @@ export function RegisterButton({
   slug,
   hasPendingPayment,
   buyer = null,
+  allowSelf = true,
 }: {
   eventId: string;
   price: number;
@@ -52,6 +53,7 @@ export function RegisterButton({
   slug: string;
   hasPendingPayment: boolean;
   buyer?: HolderDraft | null;
+  allowSelf?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -370,6 +372,7 @@ export function RegisterButton({
           key={editingUnpaid ? "pending" : buyingMore ? "more" : "new"}
           count={holderCount}
           buyer={buyer}
+          allowSelf={allowSelf}
           pending={isPending}
           tone={freeEvent ? "free" : "paid"}
           submitLabel={editingUnpaid ? t.myTickets.paySubmit : buyingMore ? moreLabel : bookLabel}

@@ -19,6 +19,50 @@ export function parseHolders(count: number, raw: unknown): { holders: TicketHold
   return { holders };
 }
 
+function personKey(person: { name: string; lastName: string; phone: string | null | undefined }) {
+  const phone = person.phone ? normalizePhone(person.phone) : null;
+  const name = person.name.trim().toLocaleLowerCase();
+  const lastName = person.lastName.trim().toLocaleLowerCase();
+  if (!phone || !name || !lastName) return null;
+  return `${name}\u0000${lastName}\u0000${phone}`;
+}
+
+export function isSelfHolder(
+  buyer: { name: string; lastName: string; phone: string | null },
+  holder: { name: string; lastName: string; phone: string },
+) {
+  const buyerKey = personKey(buyer);
+  const holderKey = personKey(holder);
+  return buyerKey != null && buyerKey === holderKey;
+}
+
+export function hasSelfTicket(
+  buyer: { name: string; lastName: string; phone: string | null },
+  tickets: { position: number; holderName: string; holderLastName: string; holderPhone: string }[],
+  quantity: number,
+) {
+  return tickets.some(
+    (ticket) =>
+      ticket.position <= quantity &&
+      isSelfHolder(buyer, {
+        name: ticket.holderName,
+        lastName: ticket.holderLastName,
+        phone: ticket.holderPhone,
+      }),
+  );
+}
+
+/** One ticket per event may be issued to the buyer. */
+export function selfTicketConflict(
+  buyer: { name: string; lastName: string; phone: string | null },
+  incoming: TicketHolder[],
+  alreadyHasSelf: boolean,
+) {
+  const incomingSelf = incoming.filter((holder) => isSelfHolder(buyer, holder)).length;
+  if (incomingSelf > 1 || (incomingSelf === 1 && alreadyHasSelf)) return "selfTicketOnce" as const;
+  return null;
+}
+
 export function holdersForPass(value: unknown, count: number): TicketHolder[] | null {
   const parsed = parseHolders(count, value);
   return "error" in parsed ? null : parsed.holders;

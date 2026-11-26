@@ -83,7 +83,7 @@ export function ReasonDialog({
       onClose={onClose}
     >
       <p className={`rounded-xl px-3 py-2 text-sm ${blocking ? "bg-red-50 text-red-800" : "bg-gray-50 text-gray-700"}`}>
-        {blocking ? t.blacklist.blockNotice : t.blacklist.unblockNotice}
+        {blocking ? fill(t.blacklist.blockNotice, { name }) : t.blacklist.unblockNotice}
       </p>
       <form
         className="mt-4"

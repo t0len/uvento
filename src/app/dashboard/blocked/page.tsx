@@ -66,7 +66,6 @@ export default async function BlockedUsersPage() {
                       name={[row.user.name, row.user.lastName].filter(Boolean).join(" ")}
                       email={row.user.email}
                       phone={row.user.phone}
-                      active={row.active}
                       entries={row.entries.map(historyEntry)}
                     />
                   </td>

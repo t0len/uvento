@@ -8,13 +8,13 @@ export function Modal({
   subtitle,
   onClose,
   children,
-  wide = false,
+  width = "md",
 }: {
   title: string;
   subtitle?: string;
   onClose: () => void;
   children: ReactNode;
-  wide?: boolean;
+  width?: "md" | "xl";
 }) {
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -41,8 +41,8 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="blacklist-dialog-title"
-        className={`relative max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white p-5 shadow-xl ${
-          wide ? "max-w-lg" : "max-w-md"
+        className={`relative max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-gray-200 bg-white shadow-xl ${
+          width === "xl" ? "max-w-2xl p-6 sm:p-7" : "max-w-md p-5"
         }`}
       >
         <div className="flex items-start justify-between gap-3">
@@ -50,7 +50,7 @@ export function Modal({
             <h2 id="blacklist-dialog-title" className="text-lg font-semibold text-gray-900">
               {title}
             </h2>
-            {subtitle ? <p className="mt-1 truncate text-sm text-gray-500">{subtitle}</p> : null}
+            {subtitle ? <p className="mt-1 break-words text-sm text-gray-500">{subtitle}</p> : null}
           </div>
           <button
             type="button"
